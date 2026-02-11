@@ -30,12 +30,9 @@ from sprites import *
 from utils import *
 # import settings
 
-
+#Camera class that lets the player move around the boundaries 
 class Camera:
-    """A simple camera to follow the player by offsetting sprite blits.
-
-    The camera stores a rect representing the offset to apply to sprite.rects.
-    """
+    
     def __init__(self, width, height):
         self.camera = pg.Rect(0, 0, width, height)
         self.width = width
@@ -80,7 +77,7 @@ class Game:
         self.game_dir = path.dirname(__file__)
 
         #creates an insantiation of Map class with text file of l1(not created)
-        self.map = Map(path.join(self.game_dir, 'level1.txt'))
+        self.map = Map(path.join(self.game_dir, 'level_1.txt'))
 
         print("Data is loaded")
         
