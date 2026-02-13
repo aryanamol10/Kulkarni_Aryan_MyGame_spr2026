@@ -11,11 +11,33 @@ def collide_hit_rect(one, two):
     #Return boolean value to check collision between the two
     return one.hit_rect.colliderect(two.rect)
 
+
+#Checks whether the x and y is aligned and in range with the wall
+#Then it changes velocity to 0 and sets the center of x and y
+#to the bounds of the wall
 def collide_with_walls(sprite, group, dir):
     if dir == 'x':
         #We see that boolean is being used here for collide_with_walls
         hits = pg.sprite.spritecollide(sprite, group, False, collide_hit_rect)
-        print(hits)
+        if hits:
+            print("collide with wall from x dir")
+            if hits[0].rect.centerx > sprite.hit_rect.centerx:
+                sprite.pos.x = hits[0].rect.left - sprite.hit_rect.width/2
+            if hits[0].rect.centerx > sprite.hit_rect.centerx:
+                sprite.pos.x = hits[0].rect.right - sprite.hit_rect.width/2
+            sprite_vel = 0
+            sprite.hit_rect.centerx = sprite.pos.x
+    if dir == 'y':
+        hits = pg.sprite.spritecollide(sprite, group, False, collide_hit_rect)
+        if hits:
+            print("collide with wall from x dir")
+            if hits[0].rect.centery > sprite.hit_rect.centery:
+                sprite.pos.y = hits[0].rect.top - sprite.hit_rect.height/2
+            if hits[0].rect.centery > sprite.hit_rect.centery:
+                sprite.pos.y = hits[0].rect.bottom - sprite.hit_rect.height/2
+            sprite_vel.y = 0
+            sprite.hit_rect.centert = sprite.pos.t
+            
 
 class Player(Sprite):
     def __init__(self, game, x, y):
