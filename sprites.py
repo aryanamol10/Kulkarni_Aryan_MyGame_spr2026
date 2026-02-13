@@ -38,7 +38,8 @@ def collide_with_walls(sprite, group, dir):
             #sprite.acceleration = vec(0,0)
             sprite.hit_rect.centery = sprite.pos.y
             
-
+#Player uses velocity, pressed keys, and sizing settings to be able to move
+#around in the map
 class Player(Sprite):
     def __init__(self, game, x, y):
         self.groups = game.all_sprites
@@ -119,6 +120,10 @@ class Enemy(Sprite):
     def update(self):
         self.rect.x += 1
 
+        
+    #Simple logic algorithm that checks target with the position and increases or decreases
+    #direction which causes the velocity of hte enemy to move... if the length of direction is
+    #0, it stops
     def seek(self, player_centerx, player_centery):
         target_pos = pg.math.Vector2(player_centerx, player_centery)
         direction = target_pos - self.pos
