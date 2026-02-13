@@ -8,11 +8,14 @@ vec = pg.math.Vector2
 #Written the collision seperately so that we dont need to make multiple for each class
 #Uses pygame in built library
 def collide_hit_rect(one, two):
+    #Return boolean value to check collision between the two
     return one.hit_rect.colliderect(two.rect)
 
 def collide_with_walls(sprite, group, dir):
     if dir == 'x':
+        #We see that boolean is being used here for collide_with_walls
         hits = pg.sprite.spritecollide(sprite, group, False, collide_hit_rect)
+        print(hits)
 
 class Player(Sprite):
     def __init__(self, game, x, y):
@@ -27,8 +30,6 @@ class Player(Sprite):
         self.vel = vec(0,0)
         self.pos = vec(x,y) * TILESIZE
         self.acceleration = vec(0,0)
-        self.boundwidth = WIDTH - TILESIZE
-        self.boundheight = HEIGHT - TILESIZE
         self.trace_bullet = []
         self.shoot_cooldown = 20
         self.hit_rect = PLAYER_HIT_RECT
@@ -86,16 +87,9 @@ class Enemy(Sprite):
         self.vel = vec(0,0)
         self.pos = vec(x,y)
         self.speed = 2
-        self.boundwidth = WIDTH - TILESIZE
-        self.boundheight = HEIGHT - TILESIZE
 
     def update(self):
         self.rect.x += 1
-        if self.rect.x > self.boundwidth:
-            self.rect.x = self.boundwidth
-
-        if self.rect.y >= self.boundheight:
-            self.rect.y = self.boundheight
 
     def seek(self, player_centerx, player_centery):
         target_pos = pg.math.Vector2(player_centerx, player_centery)

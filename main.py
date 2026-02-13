@@ -101,9 +101,9 @@ class Game:
                 if tile == 'P':
                     self.player = Player(self, col, row)
                 if tile == 'E':
-                    self.all_mobs.add(Enemy(self, 15, 15))
+                    self.all_mobs.add(Enemy(self, 100*len(self.all_mobs), 15))
                 if tile == 'C':
-                    self.all_coins.add(Enemy(self, 15, 15))
+                    self.all_coins.add(Coin(self, 15, 15))
 
         self.run()
 
