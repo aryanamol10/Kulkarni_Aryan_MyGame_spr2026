@@ -137,7 +137,7 @@ class Game:
 
     def seek_until(self):
         for mob in self.all_mobs:
-            mob.seek(self.player.pos.x, self.player.pos.x)
+            mob.seek(self.player.pos.x, self.player.pos.y)
     
     def draw(self):
         self.screen.fill(BLUE)

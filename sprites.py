@@ -17,26 +17,26 @@ def collide_hit_rect(one, two):
 #to the bounds of the wall
 def collide_with_walls(sprite, group, dir):
     if dir == 'x':
-        #We see that boolean is being used here for collide_with_walls
         hits = pg.sprite.spritecollide(sprite, group, False, collide_hit_rect)
         if hits:
             print("collide with wall from x dir")
             if hits[0].rect.centerx > sprite.hit_rect.centerx:
-                sprite.pos.x = hits[0].rect.left - sprite.hit_rect.width/2
-            if hits[0].rect.centerx > sprite.hit_rect.centerx:
-                sprite.pos.x = hits[0].rect.right - sprite.hit_rect.width/2
-            sprite_vel = 0
+                sprite.pos.x = hits[0].rect.left - (sprite.hit_rect.width/2)
+            if hits[0].rect.centerx < sprite.hit_rect.centerx:
+                sprite.pos.x = hits[0].rect.right + (sprite.hit_rect.width/2)
+            sprite.vel.x = 0
             sprite.hit_rect.centerx = sprite.pos.x
     if dir == 'y':
         hits = pg.sprite.spritecollide(sprite, group, False, collide_hit_rect)
         if hits:
-            print("collide with wall from x dir")
-            if hits[0].rect.centery > sprite.hit_rect.centery:
+            print("collide with wall from y dir")
+            if hits[0].rect.centery >= sprite.hit_rect.centery:
                 sprite.pos.y = hits[0].rect.top - sprite.hit_rect.height/2
-            if hits[0].rect.centery > sprite.hit_rect.centery:
-                sprite.pos.y = hits[0].rect.bottom - sprite.hit_rect.height/2
-            sprite_vel.y = 0
-            sprite.hit_rect.centert = sprite.pos.t
+            if hits[0].rect.centery <= sprite.hit_rect.centery:
+                sprite.pos.y = hits[0].rect.bottom + sprite.hit_rect.height/2
+            sprite.vel.y = 0
+            #sprite.acceleration = vec(0,0)
+            sprite.hit_rect.centery = sprite.pos.y
             
 
 class Player(Sprite):
@@ -89,6 +89,12 @@ class Player(Sprite):
         self.acceleration.x = 0
         self.acceleration.y = 0
 
+        collide_with_walls(self, self.game.all_walls, 'x')
+        self.hit_rect.centery = self.pos.y
+        collide_with_walls(self, self.game.all_walls, 'y')
+        self.hit_rect.centerx = self.pos.x
+
+
         #self.rect.x += 1
 
         #self.acceleration.x += self.vel *-0.1
@@ -115,7 +121,6 @@ class Enemy(Sprite):
 
     def seek(self, player_centerx, player_centery):
         target_pos = pg.math.Vector2(player_centerx, player_centery)
-
         direction = target_pos - self.pos
         if direction.length() > 0:
             direction = direction.normalize()
@@ -143,7 +148,7 @@ class Coin(Sprite):
         Sprite.__init__(self, self.groups)
         self.game = game
         self.image = pg.Surface((TILESIZE, TILESIZE))
-        self.image.fill(WHITE)
+        self.image.fill(GREEN)
         self.rect = self.image.get_rect()
         self.vel = vec(0,0)
         # x,y are tile coordinates; convert to pixel coordinates
