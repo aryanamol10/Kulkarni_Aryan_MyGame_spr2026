@@ -70,11 +70,13 @@ class Game:
         self.game_cooldown = Cooldown(5000)
     
     # a method is a function tied to a Class
-
     def load_data(self):
 
         #Accesses the file system or operating system
         self.game_dir = path.dirname(__file__)
+
+        self.img_dir = path.join(self.game_dir, 'images')
+        self.wall_dir = pg.image.load(path.join(self.img_dir, 'wall_art.png'))
 
         #creates an insantiation of Map class with text file of l1(not created)
         self.map = Map(path.join(self.game_dir, 'level_1.txt'))
@@ -151,11 +153,19 @@ class Game:
         #for bullet in self.player.trace_bullet:
         #    pg.draw.rect(self.screen, GREEN, bullet)
         # Draw sprites with camera offset so world scrolls with the player
+
+        for bullet in self.player.trace_bullet:
+            bullet.draw(self.screen)
+            bullet.check_dir(self.player.direction_facing)
+
+        
         if hasattr(self, 'camera'):
             for sprite in self.all_sprites:
                 self.screen.blit(sprite.image, self.camera.apply(sprite))
         else:
             self.all_sprites.draw(self.screen)
+
+        
         pg.display.flip()
 
 

@@ -58,6 +58,11 @@ class Player(Sprite):
         self.trace_bullet = []
         self.shoot_cooldown = 20
         self.hit_rect = PLAYER_HIT_RECT
+        self.direction_facing = ""
+
+    def shoot(self):
+
+        self.trace_bullet.append(Bullet(self.game, self.rect.x, self.rect.y))
 
     def update(self):
 
@@ -66,20 +71,25 @@ class Player(Sprite):
 
         if pressed_keys[pg.K_LEFT] or pressed_keys[pg.K_a]:
             self.acceleration.x = -PLAYER_ACCEL
+            self.direction_facing = "left"
 
         if pressed_keys[pg.K_RIGHT] or pressed_keys[pg.K_d]:
             self.acceleration.x = PLAYER_ACCEL
+            self.direction_facing = "right"
 
         if pressed_keys[pg.K_UP] or pressed_keys[pg.K_w]:
             self.acceleration.y = -PLAYER_ACCEL
+            self.direction_facing = "up"
 
         if pressed_keys[pg.K_DOWN] or pressed_keys[pg.K_s]:
             self.acceleration.y = PLAYER_ACCEL
+            self.direction_facing = "down"
 
         if pressed_keys[pg.K_SPACE]:
             if self.shoot_cooldown >= 20:
                 self.shoot()
             self.shoot_cooldown = 0
+
 
         self.acceleration += self.vel * PLAYER_FRICTION
 
@@ -97,13 +107,7 @@ class Player(Sprite):
         collide_with_walls(self, self.game.all_walls, 'y')
         self.hit_rect.centerx = self.pos.x
 
-
-        #self.rect.x += 1
-
-        #self.acceleration.x += self.vel *-0.1
-
-    def shoot(self):
-        self.trace_bullet.append()
+    
         
 
     
@@ -141,13 +145,16 @@ class Wall(Sprite):
         self.groups = game.all_sprites
         Sprite.__init__(self, self.groups)
         self.game = game
-        self.image = pg.Surface((TILESIZE, TILESIZE))
+        self.image = pg.Surface()
         self.image.fill(GREEN)
         self.rect = self.image.get_rect()
         self.vel = vec(0,0)
         # x,y are tile coordinates; convert to pixel coordinates
         self.pos = vec(x, y) * TILESIZE
         self.rect.center = self.pos
+    def update(self):
+        pass
+
 
 class Coin(Sprite):
     def __init__(self, game, x, y):
