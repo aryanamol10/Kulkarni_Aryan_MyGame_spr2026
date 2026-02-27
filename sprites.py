@@ -1,6 +1,8 @@
 import pygame as pg
 from pygame.sprite import Sprite
 from settings import *
+from utils import *
+from os import path
 
 vec = pg.math.Vector2
 
@@ -47,6 +49,7 @@ class Player(Sprite):
         self.groups = game.all_sprites
         Sprite.__init__(self, self.groups)
         self.game = game
+        self.spritesheet = Spritesheet(path.join(self.game.img_dir, "coin_sprite_sheet.png"))
         self.image = pg.Surface((TILESIZE, TILESIZE))
         self.image.fill(WHITE)
         self.rect = self.image.get_rect()
@@ -59,7 +62,11 @@ class Player(Sprite):
         self.shoot_cooldown = 20
         self.hit_rect = PLAYER_HIT_RECT
         self.direction_facing = ""
-
+        self.jumping = False
+        self.walking = False
+        self.last_update = 0
+        self.current_frame = 0
+        
     def shoot(self):
 
         self.trace_bullet.append(Bullet(self.game, self.rect.x, self.rect.y))
@@ -106,6 +113,22 @@ class Player(Sprite):
         self.hit_rect.centery = self.pos.y
         collide_with_walls(self, self.game.all_walls, 'y')
         self.hit_rect.centerx = self.pos.x
+    def load_images(self):
+        self.standing_frames =[self.spritesheet.get_image(0,0, TILESIZE, TILESIZE), 
+                               self.spritesheet.get_image(TILESIZE,0, TILESIZE, TILESIZE)]
+        for frame in self.standing_frames:
+            frame.setcolorkey(BLACK)
+
+    #Animate function
+    def animate(self):
+        now = pg.time.get_ticks()
+        if not self.jumping and not self.walking:
+            if now - self.last_update >350:
+                self.last_update = now
+                self.current_frame = (self.current_frame + 1) % len(self.standing_frames)
+                bottom = self.rect.bottom
+                self.image = self.standing_frames[self.current_frame]
+
 
     
         
@@ -122,9 +145,15 @@ class Enemy(Sprite):
         self.vel = vec(0,0)
         self.pos = vec(x,y)
         self.speed = 2
+        self.hit_rect = ENEMY_HIT_RECT
 
     def update(self):
         self.rect.x += 1
+
+        collide_with_walls(self, self.game.all_walls, 'x')
+        self.hit_rect.centery = self.pos.y
+        collide_with_walls(self, self.game.all_walls, 'y')
+        self.hit_rect.centerx = self.pos.x
 
         
     #Simple logic algorithm that checks target with the position and increases or decreases
@@ -145,8 +174,9 @@ class Wall(Sprite):
         self.groups = game.all_sprites
         Sprite.__init__(self, self.groups)
         self.game = game
-        self.image = pg.Surface()
-        self.image.fill(GREEN)
+        self.image = game.wall_dir
+        #self.image = pg.Surface()
+        #self.image.fill(GREEN)
         self.rect = self.image.get_rect()
         self.vel = vec(0,0)
         # x,y are tile coordinates; convert to pixel coordinates
@@ -161,8 +191,9 @@ class Coin(Sprite):
         self.groups = game.all_sprites
         Sprite.__init__(self, self.groups)
         self.game = game
-        self.image = pg.Surface((TILESIZE, TILESIZE))
-        self.image.fill(GREEN)
+        self.image = game.coin_dir
+        #self.image = pg.Surface((TILESIZE, TILESIZE))
+        #self.image.fill(GREEN)
         self.rect = self.image.get_rect()
         self.vel = vec(0,0)
         # x,y are tile coordinates; convert to pixel coordinates

@@ -76,7 +76,8 @@ class Game:
         self.game_dir = path.dirname(__file__)
 
         self.img_dir = path.join(self.game_dir, 'images')
-        self.wall_dir = pg.image.load(path.join(self.img_dir, 'wall_art.png'))
+        self.wall_dir = pg.image.load(path.join(self.img_dir, 'wall_art.png')).convert_alpha()
+        self.coin_dir = pg.image.load(path.join(self.img_dir, 'mario-coins.png')).convert_alpha()
 
         #creates an insantiation of Map class with text file of l1(not created)
         self.map = Map(path.join(self.game_dir, 'level_1.txt'))
