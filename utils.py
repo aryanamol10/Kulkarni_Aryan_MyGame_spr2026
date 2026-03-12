@@ -16,6 +16,32 @@ class Map:
         self.width = self.tilewidth * TILESIZE
 
 
+#Camera class that lets the player move around the boundaries 
+class Camera:
+    
+    def __init__(self, width, height):
+        self.camera = pg.Rect(0, 0, width, height)
+        self.width = width
+        self.height = height
+
+    def apply(self, entity):
+        # Move an entity's rect by the camera offset
+        return entity.rect.move(self.camera.topleft)
+
+    def update(self, target):
+        # Center the camera on target
+        x = -target.rect.centerx + int(WIDTH / 2)
+        y = -target.rect.centery + int(HEIGHT / 2)
+
+        # Limit scrolling to map boundaries
+        x = min(0, x)  # left
+        x = max(-(self.width - WIDTH), x)  # right
+        y = min(0, y)  # top
+        y = max(-(self.height - HEIGHT), y)  # bottom
+
+        self.camera = pg.Rect(x, y, self.width, self.height)
+
+
 class Spritesheet:
     def __init__(self, filename):
         self.spritesheet = pg.image.load(filename).convert()

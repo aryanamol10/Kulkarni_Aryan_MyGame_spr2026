@@ -30,30 +30,6 @@ from sprites import *
 from utils import *
 # import settings
 
-#Camera class that lets the player move around the boundaries 
-class Camera:
-    
-    def __init__(self, width, height):
-        self.camera = pg.Rect(0, 0, width, height)
-        self.width = width
-        self.height = height
-
-    def apply(self, entity):
-        # Move an entity's rect by the camera offset
-        return entity.rect.move(self.camera.topleft)
-
-    def update(self, target):
-        # Center the camera on target
-        x = -target.rect.centerx + int(WIDTH / 2)
-        y = -target.rect.centery + int(HEIGHT / 2)
-
-        # Limit scrolling to map boundaries
-        x = min(0, x)  # left
-        x = max(-(self.width - WIDTH), x)  # right
-        y = min(0, y)  # top
-        y = max(-(self.height - HEIGHT), y)  # bottom
-
-        self.camera = pg.Rect(x, y, self.width, self.height)
 
 
 # the game class that will be instantiated in order to run the game...
@@ -77,7 +53,6 @@ class Game:
 
         self.img_dir = path.join(self.game_dir, 'images')
         self.wall_dir = pg.image.load(path.join(self.img_dir, 'wall_art.png')).convert_alpha()
-        self.coin_dir = pg.image.load(path.join(self.img_dir, 'mario-coins.png')).convert_alpha()
 
         #creates an insantiation of Map class with text file of l1(not created)
         self.map = Map(path.join(self.game_dir, 'level_1.txt'))
@@ -143,7 +118,7 @@ class Game:
             mob.seek(self.player.pos.x, self.player.pos.y)
     
     def draw(self):
-        self.screen.fill(BLUE)
+        self.screen.fill(GREEN)
         self.draw_text("Hello World", 24, WHITE, WIDTH/2, TILESIZE)
         #self.draw_text(str(self.dt), 24, WHITE, WIDTH/2, HEIGHT/4)
         #self.draw_text(str(self.enemy_check), 24, WHITE, WIDTH/2, HEIGHT/4)

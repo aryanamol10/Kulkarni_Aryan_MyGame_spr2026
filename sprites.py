@@ -41,6 +41,13 @@ def collide_with_walls(sprite, group, dir):
             sprite.vel.y = 0
             #sprite.acceleration = vec(0,0)
             sprite.hit_rect.centery = sprite.pos.y
+
+
+player_Dictionaries = {
+
+    
+
+}
             
 #Player uses velocity, pressed keys, and sizing settings to be able to move
 #around in the map
@@ -49,9 +56,11 @@ class Player(Sprite):
         self.groups = game.all_sprites
         Sprite.__init__(self, self.groups)
         self.game = game
-        self.spritesheet = Spritesheet(path.join(self.game.img_dir, "coin_sprite_sheet.png"))
+        self.spritesheet = Spritesheet(path.join(self.game.img_dir, "Player_Sprite.png"))
+        self.load_images()
         self.image = pg.Surface((TILESIZE, TILESIZE))
-        self.image.fill(WHITE)
+        self.image = self.spritesheet.get_image(139.5,132, TILESIZE, TILESIZE)
+        self.image.set_colorkey(WHITE)
         self.rect = self.image.get_rect()
         self.positive_mov_x = False
         self.positive_mov_y = False
@@ -97,6 +106,10 @@ class Player(Sprite):
                 self.shoot()
             self.shoot_cooldown = 0
 
+        self.state_check()
+        print(self.walking)
+        self.animate()
+
 
         self.acceleration += self.vel * PLAYER_FRICTION
 
@@ -113,25 +126,52 @@ class Player(Sprite):
         self.hit_rect.centery = self.pos.y
         collide_with_walls(self, self.game.all_walls, 'y')
         self.hit_rect.centerx = self.pos.x
+
+
     def load_images(self):
-        self.standing_frames =[self.spritesheet.get_image(0,0, TILESIZE, TILESIZE), 
-                               self.spritesheet.get_image(TILESIZE,0, TILESIZE, TILESIZE)]
+        WIDTH = TILESIZE
+        HEIGHT = TILESIZE
+        self.standing_frames =[self.spritesheet.get_image(0,0, WIDTH, HEIGHT), 
+                               self.spritesheet.get_image(WIDTH,0, WIDTH, HEIGHT),
+                               self.spritesheet.get_image(WIDTH*2,0, WIDTH, HEIGHT),
+
+                               self.spritesheet.get_image(WIDTH*3,0, WIDTH, HEIGHT),
+                               self.spritesheet.get_image(WIDTH*4,0, WIDTH, HEIGHT),
+                               self.spritesheet.get_image(WIDTH*5,0, WIDTH, HEIGHT),
+
+                               self.spritesheet.get_image(WIDTH*6,0, WIDTH, HEIGHT),
+                               self.spritesheet.get_image(WIDTH*7,0, WIDTH, HEIGHT),
+                               self.spritesheet.get_image(WIDTH*8,0, WIDTH, HEIGHT),
+
+                               self.spritesheet.get_image(WIDTH*9,0, WIDTH, HEIGHT)]
         for frame in self.standing_frames:
-            frame.setcolorkey(BLACK)
+            frame.set_colorkey(BLACK)
 
     #Animate function
     def animate(self):
         now = pg.time.get_ticks()
-        if not self.jumping and not self.walking:
-            if now - self.last_update >350:
+        if not self.jumping and self.walking:
+            if now - self.last_update > 35:
                 self.last_update = now
                 self.current_frame = (self.current_frame + 1) % len(self.standing_frames)
                 bottom = self.rect.bottom
                 self.image = self.standing_frames[self.current_frame]
+                self.rect = self.image.get_rect()
+                self.rect.bottom = bottom
+        elif not self.walking:
+            if now - self.last_update > 35:
+                self.last_update = now
+                self.current_frame = 1
+                bottom = self.rect.bottom
+                self.image = self.standing_frames[self.current_frame]
+                self.rect = self.image.get_rect()
+                self.rect.bottom = bottom
 
-
-    
-        
+    def state_check(self):
+        if self.vel != vec(0.1,0.1):
+            self.walking = True
+        else: 
+            self.walking = False
 
     
 class Enemy(Sprite):
@@ -191,7 +231,10 @@ class Coin(Sprite):
         self.groups = game.all_sprites
         Sprite.__init__(self, self.groups)
         self.game = game
-        self.image = game.coin_dir
+        self.spritesheet = Spritesheet(path.join(self.game.img_dir, "coin_sprite_sheet.png"))
+        self.image = pg.Surface((TILESIZE, TILESIZE))
+        self.image = self.spritesheet.get_image(0,0,TILESIZE, TILESIZE)
+        self.load_images()
         #self.image = pg.Surface((TILESIZE, TILESIZE))
         #self.image.fill(GREEN)
         self.rect = self.image.get_rect()
@@ -199,6 +242,31 @@ class Coin(Sprite):
         # x,y are tile coordinates; convert to pixel coordinates
         self.pos = vec(x, y) * TILESIZE
         self.rect.center = self.pos
+        self.last_update = 0
+        self.current_frame = 0
+
+    def load_images(self):
+        self.standing_frames = [self.spritesheet.get_image(0,0,TILESIZE, TILESIZE), 
+                                self.spritesheet.get_image(TILESIZE,0,TILESIZE, TILESIZE)]
+        self.moving_frames = [self.spritesheet.get_image(TILESIZE*2,0,TILESIZE, TILESIZE), 
+                                self.spritesheet.get_image(TILESIZE*3,0,TILESIZE, TILESIZE)]
+        for frame in self.standing_frames:
+            frame.set_colorkey(BLACK)
+
+    def animate(self):
+        now = pg.time.get_ticks()
+        if now - self.last_update > 350:
+                self.last_update = now
+                self.current_frame = (self.current_frame + 1) % len(self.standing_frames)
+                bottom = self.rect.bottom
+                self.image = self.standing_frames[self.current_frame]
+                self.rect = self.image.get_rect()
+                self.rect.bottom = bottom
+
+    def update(self):
+        self.animate()
+        
+        
 
 
 
