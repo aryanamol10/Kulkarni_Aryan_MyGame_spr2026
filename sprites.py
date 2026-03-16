@@ -158,7 +158,7 @@ class Player(Sprite):
 
     
 class Enemy(Sprite):
-    def __init__(self, game, x, y, speed=2, health=50):
+    def __init__(self, game, col, row, boss_type):
         self.groups = game.all_sprites
         Sprite.__init__(self, self.groups)
         self.game = game
@@ -166,12 +166,14 @@ class Enemy(Sprite):
         self.image.fill(RED)
         self.rect = self.image.get_rect()
         self.vel = vec(0, 0)
-        self.pos = vec(x, y)
-        self.speed = speed
-        self.health = health
-        self.max_health = health
         self.hit_rect = ENEMY_HIT_RECT
         self.hit_rect.center = self.pos
+
+
+        # Boss Difficulty Scaling
+        stats = {'A': 50, 'B': 100, 'C': 150, 'D': 300}
+        self.health = stats.get(boss_type, 50)
+        self.speed = 150
 
     def take_damage(self, damage):
         """Boss takes damage from player bullets"""
@@ -214,97 +216,8 @@ class Floor(Sprite):
     def update(self):
         pass
 
-class Wall(Sprite):
-    def __init__(self, game, x, y):
-        self.groups = game.all_sprites, game.all_walls
-        Sprite.__init__(self, self.groups)
-        self.game = game
-        # try loading texture; fall back to plain fill if not present
-        try:
-            self.image = pg.image.load(path.join(self.game.img_dir,
-                                                 'wall_tile.png')).convert_alpha()
-            self.image = pg.transform.scale(self.image, (TILESIZE, TILESIZE))
-        except Exception:
-            self.image = pg.Surface((TILESIZE, TILESIZE))
-            self.image.fill((100, 70, 40))
-            pg.draw.rect(self.image, (80, 50, 20), self.image.get_rect(), 2)
-        self.rect = self.image.get_rect()
-        self.pos = vec(x, y) * TILESIZE
-        self.rect.center = self.pos
-    def update(self):
-        pass
 
-class Door(pg.sprite.Sprite):
-    def __init__(self, game, x, y, door_type):
-        pg.sprite.Sprite.__init__(self)
-        self.game = game
-        self.x = x
-        self.y = y
-        self.door_type = door_type  # A, B, C, or D
-        self.direction = self.get_direction_label()
-        self.is_open = False
-        self.animation_progress = 0
-        self.animation_speed = 0.1
-        
-        # Door dimensions
-        self.door_width = 80
-        self.door_height = 100
-        
-        self.image = pg.Surface((self.door_width, self.door_height))
-        self.rect = self.image.get_rect()
-        self.rect.center = (x * TILESIZE + TILESIZE // 2, y * TILESIZE + TILESIZE // 2)
-        
-        self.draw_door()
-    
-    def get_direction_label(self):
-        """Convert door type (A, B, C, D) to displayable direction"""
-        direction_map = {
-            'A': 'Boss A',
-            'B': 'Boss B',
-            'C': 'Boss C',
-            'D': 'Boss D'
-        }
-        return direction_map.get(self.door_type, 'Unknown')
-    
-    def draw_door(self):
-        """Draw the door with current animation state"""
-        self.image.fill((30, 30, 30))  # Dark background
-        
-        # Door frame
-        pg.draw.rect(self.image, (100, 70, 40), self.image.get_rect(), 3)
-        
-        # Door opening animation
-        if self.is_open:
-            door_open = int(self.door_width * self.animation_progress)
-            # Draw opening crack
-            pg.draw.rect(self.image, (150, 150, 150), (door_open, 10, 5, self.door_height - 20))
-        else:
-            # Door knob
-            knob_x = int(self.door_width * 0.75)
-            knob_y = self.door_height // 2
-            pg.draw.circle(self.image, (200, 150, 50), (knob_x, knob_y), 8)
-            
-            # Door label with direction
-            self.draw_door_label()
-    
-    def draw_door_label(self):
-        """Draw direction label on door"""
-        font = pg.font.Font(None, 28)
-        label_text = font.render(self.direction, True, (255, 200, 0))
-        label_rect = label_text.get_rect(center=(self.door_width // 2, self.door_height // 2))
-        self.image.blit(label_text, label_rect)
-    
-    def animate(self):
-        """Trigger door opening animation"""
-        self.is_open = True
-        self.animation_progress = 0
-    
-    def update(self):
-        """Update door animation"""
-        if self.is_open and self.animation_progress < 1.0:
-            self.animation_progress += self.animation_speed
-        
-        self.draw_door()
+
 
 class Coin(Sprite):
     def __init__(self, game, x, y):
@@ -343,35 +256,35 @@ class Coin(Sprite):
     def update(self):
         self.animate()
 
+
 class Bullet(Sprite):
-    def __init__(self, game, x, y):
-        self.groups = game.all_bullets
+    def __init__(self, game, pos, direction):
+        self.groups = game.all_sprites, game.all_bullets
         Sprite.__init__(self, self.groups)
-        self.game = game
-        self.image = pg.Surface((8, 8))
-        self.image.fill(GREEN)
-        self.rect = self.image.get_rect()
-        self.vel = vec(0, 0)
-        self.pos = vec(x, y)
-        self.rect.center = self.pos
-
-    def draw(self, screen, pos):
-        pg.draw.rect(screen, GREEN, (pos[0], pos[1], 8, 8))
-
-    def check_dir(self, direction):
-        if direction == "left":
-            self.vel.x = -10
-        elif direction == "right":
-            self.vel.x = 10
-        elif direction == "up":
-            self.vel.y = -10
-        elif direction == "down":
-            self.vel.y = 10
+        self.image = pg.Surface((10, 10))
+        self.image.fill(YELLOW)
+        self.rect = self.image.get_rect(center=pos)
+        self.vel = direction * 500
 
     def update(self):
-        self.pos += self.vel
-        self.rect.center = self.pos
-        
-        # Remove bullet if off screen
-        if self.rect.x < 0 or self.rect.x > WIDTH or self.rect.y < 0 or self.rect.y > HEIGHT:
-            self.kill()
+        self.rect.center += self.vel * self.game.dt
+        # Kill if it leaves map
+        if not self.game.map.width > self.rect.x > 0: self.kill()
+
+class Wall(Sprite):
+    def __init__(self, game, x, y):
+        self.groups = game.all_sprites, game.all_walls
+        Sprite.__init__(self, self.groups)
+        self.image = pg.Surface((TILESIZE, TILESIZE))
+        self.image.fill((60, 60, 80)) # Dark blue-grey "brick" color
+        self.rect = self.image.get_rect(topleft=(x*TILESIZE, y*TILESIZE))
+
+class Door(Sprite):
+    def __init__(self, game, x, y, door_type):
+        self.groups = game.all_sprites, game.all_doors
+        Sprite.__init__(self, self.groups)
+        self.door_type = door_type
+        self.image = pg.Surface((TILESIZE, TILESIZE))
+        self.image.fill(BLUE)
+        pg.draw.rect(self.image, WHITE, (4, 4, 24, 24), 2) # Adding a "border"
+        self.rect = self.image.get_rect(topleft=(x*TILESIZE, y*TILESIZE))
