@@ -181,11 +181,10 @@ class Enemy(Sprite):
         print(f"Boss health: {self.health}")
 
     def update(self):
-        # Seek player if available
         if hasattr(self.game, 'player'):
             self.seek(self.game.player.pos.x, self.game.player.pos.y)
         
-        collide_with_walls(self, self.game.all_walls, 'x')
+        collide_with_walls(self, self.game.player, 'x')
         self.hit_rect.centery = self.pos.y
         collide_with_walls(self, self.game.all_walls, 'y')
         self.hit_rect.centerx = self.pos.x
@@ -215,6 +214,42 @@ class Floor(Sprite):
         
     def update(self):
         pass
+
+class Door(Sprite):
+    def init(self, game, x, y):
+        self.groups = game.all_sprites
+        Sprite.__init__(self, self.groups)
+        self.game = game
+        self.spritesheet = Spritesheet(path.join(self.game.img_dir, "door_animation.png"))
+        self.image = pg.Surface((TILESIZE, TILESIZE))
+        self.image = self.spritesheet.get_image(0, 0, TILESIZE, TILESIZE)
+        self.load_images()
+        self.rect.center = self.pos
+        self.door_states = []
+        self.open_door = False
+
+    def load_images(self):
+        self.door_states = [self.spritesheet.get_image(0, 0, TILESIZE, TILESIZE), 
+                                self.spritesheet.get_image(TILESIZE, 0, TILESIZE, TILESIZE)]
+        for frame in self.standing_frames:
+            frame.set_colorkey(BLACK)
+
+    def check_door_state(self):
+        now = pg.time.get_ticks()
+        if self.open_door:
+                self.last_update = now
+                self.door_states = (self.current_frame + 1) % len(self.standing_frames)
+                bottom = self.rect.bottom
+                self.image = self.standing_frames[self.current_frame]
+                self.rect = self.image.get_rect()
+                self.rect.bottom = bottom
+
+    def update(self):
+
+        if hasattr(self.game, 'player'):
+            self.open_door = collide_hit_rect(self, self.game.player)
+        self.check_door_state()
+
 
 
 
