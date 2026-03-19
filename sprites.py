@@ -53,15 +53,12 @@ class Player(Sprite):
         self.shoot_cooldown = 20
         self.hit_rect = PLAYER_HIT_RECT
         self.direction_facing = ""
-        self.jumping = False
         self.walking = False
         self.last_update = 0
         self.current_frame = 0
         self.health = 100
-        
-    def shoot(self):
-        self.trace_bullet.append(Bullet(self.game, self.rect.x, self.rect.y))
-        self.game.all_bullets.add(self.trace_bullet[-1])
+        self.shooting_state = False
+
 
     def attack(self):
         """Player attack method"""
@@ -100,7 +97,10 @@ class Player(Sprite):
             self.acceleration.y = PLAYER_ACCEL
             self.direction_facing = "down"
 
-        self.state_check()
+        if pressed_keys[pg.K_SPACE]:
+            self.shoot_state = True
+
+        #self.state_check()
         self.animate()
 
         self.acceleration += self.vel * PLAYER_FRICTION
@@ -131,30 +131,38 @@ class Player(Sprite):
         for frame in self.standing_frames:
             frame.set_colorkey(BLACK)
 
+
     def animate(self):
         now = pg.time.get_ticks()
-        if not self.jumping and self.walking:
-            if now - self.last_update > 35:
+        self.image, self.rect, self.rect.bottom = check_walking_state(self, now)
+
+
+def check_walking_state(self, now, rect):
+    if self.vel != vec(0.0, 0.0):
+        if now - self.last_update > 35:
                 self.last_update = now
-                self.current_frame = (self.current_frame + 1) % len(self.standing_frames)
-                bottom = self.rect.bottom
-                self.image = self.standing_frames[self.current_frame]
-                self.rect = self.image.get_rect()
-                self.rect.bottom = bottom
-        elif not self.walking:
-            if now - self.last_update > 35:
+                current_frame = (self.current_frame + 1) % len(self.standing_frames)
+                bottom = rect.bottom
+                image = self.standing_frames[self.current_frame]
+                rect = self.image.get_rect()
+                recbottom = bottom
+    elif self.vel == vec(0.0, 0.0):
+        if now - self.last_update > 35:
                 self.last_update = now
                 self.current_frame = 1
-                bottom = self.rect.bottom
-                self.image = self.standing_frames[self.current_frame]
-                self.rect = self.image.get_rect()
-                self.rect.bottom = bottom
+                bottom = rect.bottom
+                image = self.standing_frames[self.current_frame]
+                rect = self.image.get_rect()
+                recbottom = bottom
 
-    def state_check(self):
-        if self.vel != vec(0.1, 0.1):
-            self.walking = True
-        else: 
-            self.walking = False
+    return image, rect, recbottom
+
+def check_shooting_state(shoot_state, trace_bullet, game, rectx, recty):
+    if shoot_state:
+        trace_bullet.append(Bullet(game, rectx, recty))
+        game.all_bullets.add(trace_bullet[-1])
+
+
 
     
 class Enemy(Sprite):
@@ -217,30 +225,30 @@ class Floor(Sprite):
 
 class Door(Sprite):
     def init(self, game, x, y):
-        self.groups = game.all_sprites
-        Sprite.__init__(self, self.groups)
+        
+        self.groups = game.all_sprites, game.all_doors
         self.game = game
         self.spritesheet = Spritesheet(path.join(self.game.img_dir, "door_animation.png"))
         self.image = pg.Surface((TILESIZE, TILESIZE))
         self.image = self.spritesheet.get_image(0, 0, TILESIZE, TILESIZE)
         self.load_images()
-        self.rect.center = self.pos
+        self.rect = self.image.get_rect()
         self.door_states = []
         self.open_door = False
 
     def load_images(self):
         self.door_states = [self.spritesheet.get_image(0, 0, TILESIZE, TILESIZE), 
                                 self.spritesheet.get_image(TILESIZE, 0, TILESIZE, TILESIZE)]
-        for frame in self.standing_frames:
+        for frame in self.door_states:
             frame.set_colorkey(BLACK)
 
     def check_door_state(self):
         now = pg.time.get_ticks()
         if self.open_door:
                 self.last_update = now
-                self.door_states = (self.current_frame + 1) % len(self.standing_frames)
+                self.door_states = (self.current_frame + 1) % len(self.door_states)
                 bottom = self.rect.bottom
-                self.image = self.standing_frames[self.current_frame]
+                self.image = self.door_states[self.current_frame]
                 self.rect = self.image.get_rect()
                 self.rect.bottom = bottom
 
@@ -312,14 +320,4 @@ class Wall(Sprite):
         Sprite.__init__(self, self.groups)
         self.image = pg.Surface((TILESIZE, TILESIZE))
         self.image.fill((60, 60, 80)) # Dark blue-grey "brick" color
-        self.rect = self.image.get_rect(topleft=(x*TILESIZE, y*TILESIZE))
-
-class Door(Sprite):
-    def __init__(self, game, x, y, door_type):
-        self.groups = game.all_sprites, game.all_doors
-        Sprite.__init__(self, self.groups)
-        self.door_type = door_type
-        self.image = pg.Surface((TILESIZE, TILESIZE))
-        self.image.fill(BLUE)
-        pg.draw.rect(self.image, WHITE, (4, 4, 24, 24), 2) # Adding a "border"
         self.rect = self.image.get_rect(topleft=(x*TILESIZE, y*TILESIZE))

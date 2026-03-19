@@ -6,7 +6,7 @@ class Map:
         #creating data for building map using list
         self.data = []
 
-        #open specific file and close through 'with' keyword
+
         with open(filename, 'rt') as f:
             for line in f:
                 self.data.append(line.strip())
@@ -16,7 +16,6 @@ class Map:
         self.width = self.tilewidth * TILESIZE
 
 
-#Camera class that lets the player move around the boundaries 
 class Camera:
     
     def __init__(self, width, height):
