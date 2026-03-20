@@ -132,9 +132,53 @@ class Player(Sprite):
             frame.set_colorkey(BLACK)
 
 
-    def animate(self):
+
+class State():
+    def __init__(self, owner):
+        self.owner = owner
+    def enter(self):
+        pass
+    def update():
+        pass
+    def exit():
+        pass
+
+class WalkingState(State):
+    def update(self, now):
         now = pg.time.get_ticks()
-        self.image, self.rect, self.rect.bottom = check_walking_state(self, now)
+        if self.owner.vel.length() > 0.1:
+            if now - self.last_update > 35:
+                    self.last_update = now
+                    self.owner.current_frame = (self.current_frame + 1) % len(self.standing_frames)
+                    bottom = self.owner.rect.bottom
+                    self.owner.image = self.owener.standing_frames[self.owner.current_frame]
+                    self.owner.rect = self.owner.image.get_rect()
+                    self.owner.recbottom = bottom
+        elif self.vel.length() < 0.1:
+            if now - self.owner.last_update > 35:
+                    self.owner.last_update = now
+                    self.owner.current_frame = 1
+                    bottom = self.owner.rect.bottom
+                    self.owner.image = self.owner.standing_frames[self.owner.current_frame]
+                    self.owner.rect = self.owner.image.get_rect()
+                    self.owner.recbottom = bottom
+
+class ParentState(Sprite):
+    def __init__(self, groups):
+        super.__init__(self, groups)
+        self.state = None 
+
+    def update_state(self, state_class):
+        if self.state:
+            self.state.exit()
+        self.state = state_class(self)
+        self.state.enter()
+
+    def update(self):
+        if self.state:
+            now = pg.time.get_ticks()
+            self.state.update(now)
+        
 
 
 def check_walking_state(self, now, rect):
@@ -310,9 +354,11 @@ class Bullet(Sprite):
         self.vel = direction * 500
 
     def update(self):
-        self.rect.center += self.vel * self.game.dt
-        # Kill if it leaves map
-        if not self.game.map.width > self.rect.x > 0: self.kill()
+        self.pos += self.vel * self.game.dt
+        self.rect.center = self.pos
+        # Kill if it leaves screen (simplified)
+        if not (0 < self.rect.x < WIDTH and 0 < self.rect.y < HEIGHT):
+            self.kill()
 
 class Wall(Sprite):
     def __init__(self, game, x, y):
