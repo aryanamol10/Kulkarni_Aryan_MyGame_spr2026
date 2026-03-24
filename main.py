@@ -47,7 +47,7 @@ class Game:
         self.all_bullets = pg.sprite.Group()
         
         # Load the current level map
-        map_file = path.join(self.game_dir, f'{self.current_level}.txt')
+        map_file = path.join(self.game_dir, f'Levels/{self.current_level}.txt')
         self.map = Map(map_file)
         
         # Initialize camera using map dimensions
@@ -65,7 +65,7 @@ class Game:
                     self.player = Player(self, col, row)
                     self.all_sprites.add(self.player)
                 elif tile in self.level_map:
-                    self.all_doors.add(Door(self, col, row, tile))
+                    self.all_doors.add(Door(self, col, row))
                 elif tile in ['A', 'B', 'C', 'D']:
                     boss = self.spawn_boss(tile, col, row)
                     if boss:

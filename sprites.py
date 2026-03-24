@@ -36,7 +36,7 @@ player_Dictionaries = {}
 class Player(Sprite):
     def __init__(self, game, x, y):
         self.groups = game.all_sprites
-        Sprite.__init__(self, self.groups)
+        ParentState.__init__(self, self.groups)
         self.game = game
         self.spritesheet = Spritesheet(path.join(self.game.img_dir, "Player_Sprite.png"))
         self.load_images()
@@ -58,6 +58,7 @@ class Player(Sprite):
         self.current_frame = 0
         self.health = 100
         self.shooting_state = False
+        self.state[State] = WalkingState
 
 
     def attack(self):
@@ -138,30 +139,28 @@ class State():
         self.owner = owner
     def enter(self):
         pass
-    def update():
+    def update(self, now):
         pass
-    def exit():
+    def exit(self):
         pass
 
 class WalkingState(State):
     def update(self, now):
-        now = pg.time.get_ticks()
-        if self.owner.vel.length() > 0.1:
-            if now - self.last_update > 35:
-                    self.last_update = now
-                    self.owner.current_frame = (self.current_frame + 1) % len(self.standing_frames)
-                    bottom = self.owner.rect.bottom
-                    self.owner.image = self.owener.standing_frames[self.owner.current_frame]
-                    self.owner.rect = self.owner.image.get_rect()
-                    self.owner.recbottom = bottom
-        elif self.vel.length() < 0.1:
-            if now - self.owner.last_update > 35:
-                    self.owner.last_update = now
-                    self.owner.current_frame = 1
-                    bottom = self.owner.rect.bottom
-                    self.owner.image = self.owner.standing_frames[self.owner.current_frame]
-                    self.owner.rect = self.owner.image.get_rect()
-                    self.owner.recbottom = bottom
+        
+        if now - self.owner.last_update > 100:
+            self.owner.last_update = now
+            
+            
+            if self.owner.vel.length() > 0.1:
+                self.owner.current_frame = (self.owner.current_frame + 1) % len(self.owner.standing_frames)
+            else:
+                self.owner.current_frame = 0 
+
+            # Update the actual image
+            bottom = self.owner.rect.bottom
+            self.owner.image = self.owner.standing_frames[self.owner.current_frame]
+            self.owner.rect = self.owner.image.get_rect()
+            self.owner.rect.bottom = bottom
 
 class ParentState(Sprite):
     def __init__(self, groups):
@@ -263,22 +262,23 @@ class Floor(Sprite):
         self.rect = self.image.get_rect()
         self.pos = vec(x, y) * TILESIZE
         self.rect.center = self.pos
-        
+
     def update(self):
         pass
+        
 
 class Door(Sprite):
-    def init(self, game, x, y):
-        
+    def __init__(self, game, x, y):
         self.groups = game.all_sprites, game.all_doors
+        Sprite.__init__(self, self.groups)
         self.game = game
         self.spritesheet = Spritesheet(path.join(self.game.img_dir, "door_animation.png"))
         self.image = pg.Surface((TILESIZE, TILESIZE))
         self.image = self.spritesheet.get_image(0, 0, TILESIZE, TILESIZE)
         self.load_images()
         self.rect = self.image.get_rect()
-        self.door_states = []
         self.open_door = False
+        self.current_door_state = 0
 
     def load_images(self):
         self.door_states = [self.spritesheet.get_image(0, 0, TILESIZE, TILESIZE), 
@@ -290,16 +290,16 @@ class Door(Sprite):
         now = pg.time.get_ticks()
         if self.open_door:
                 self.last_update = now
-                self.door_states = (self.current_frame + 1) % len(self.door_states)
+                self.current_door_state = (self.current_door_state + 1) % len(self.door_states)
                 bottom = self.rect.bottom
-                self.image = self.door_states[self.current_frame]
+                self.image = self.door_states[int(self.current_door_state)]
                 self.rect = self.image.get_rect()
                 self.rect.bottom = bottom
 
     def update(self):
 
         if hasattr(self.game, 'player'):
-            self.open_door = collide_hit_rect(self, self.game.player)
+            self.open_door = collide_hit_rect(self.game.player, self)
         self.check_door_state()
 
 
