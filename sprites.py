@@ -31,12 +31,79 @@ def collide_with_walls(sprite, group, dir):
             sprite.vel.y = 0
             sprite.hit_rect.centery = sprite.pos.y
 
-player_Dictionaries = {}
+
+class State():
+    def __init__(self, owner):
+        self.owner = owner
+    def enter(self):
+        pass
+    def update(self, now):
+        pass
+    def exit(self):
+        pass
+
+class WalkingState(State):
+    def update(self, now):
+        
+        if now - self.owner.last_update > 100:
+            self.owner.last_update = now
             
-class Player(Sprite):
+            
+            if self.owner.vel.length() > 0.1:
+                self.owner.current_frame = (self.owner.current_frame + 1) % len(self.owner.standing_frames)
+            else:
+                self.owner.current_frame = 0 
+
+            # Update the actual image
+            bottom = self.owner.rect.bottom
+            self.owner.image = self.owner.standing_frames[self.owner.current_frame]
+            self.owner.rect = self.owner.image.get_rect()
+            self.owner.rect.bottom = bottom
+
+
+class ParentState(Sprite):
+    def __init__(self, groups):
+        super().__init__(groups)
+        self.state = None 
+
+    def update_state(self, state_class):
+        if self.state:
+            self.state.exit()
+        self.state = state_class(self)
+        self.state.enter()
+
+    def update(self):
+        if self.state:
+            now = pg.time.get_ticks()
+            self.state.update(now)
+
+class DoorClosedState(State):
+    def update(self, now):
+        if collide_hit_rect(self.owner.game.player, self.owner):
+            self.owner.change_state(DoorOpenState)
+
+class DoorOpenState(State):
+    def enter(self):
+        self.owner.image = self.owner.door_states[1] # Open frame
+    def update(self, now):
+        if not collide_hit_rect(self.owner.game.player, self.owner):
+            self.owner.change_state(DoorClosedState)
+
+class CoinSpinState(State):
+    def update(self, now):
+        if now - self.owner.last_update > 350:
+            self.owner.last_update = now
+            self.owner.current_frame = (self.owner.current_frame + 1) % len(self.owner.standing_frames)
+            self.owner.image = self.owner.standing_frames[self.owner.current_frame]
+        
+
+
+
+            
+class Player(ParentState):
     def __init__(self, game, x, y):
         self.groups = game.all_sprites
-        ParentState.__init__(self, self.groups)
+        super().__init__(self.groups)
         self.game = game
         self.spritesheet = Spritesheet(path.join(self.game.img_dir, "Player_Sprite.png"))
         self.load_images()
@@ -46,6 +113,7 @@ class Player(Sprite):
         self.rect = self.image.get_rect()
         self.positive_mov_x = False
         self.positive_mov_y = False
+
         self.vel = vec(0, 0)
         self.pos = vec(x, y) * TILESIZE
         self.acceleration = vec(0, 0)
@@ -58,7 +126,9 @@ class Player(Sprite):
         self.current_frame = 0
         self.health = 100
         self.shooting_state = False
-        self.state[State] = WalkingState
+
+
+        self.update_state(WalkingState)
 
 
     def attack(self):
@@ -102,7 +172,7 @@ class Player(Sprite):
             self.shoot_state = True
 
         #self.state_check()
-        self.animate()
+        super().update()
 
         self.acceleration += self.vel * PLAYER_FRICTION
         self.vel += self.acceleration
@@ -134,52 +204,9 @@ class Player(Sprite):
 
 
 
-class State():
-    def __init__(self, owner):
-        self.owner = owner
-    def enter(self):
-        pass
-    def update(self, now):
-        pass
-    def exit(self):
-        pass
-
-class WalkingState(State):
-    def update(self, now):
-        
-        if now - self.owner.last_update > 100:
-            self.owner.last_update = now
-            
-            
-            if self.owner.vel.length() > 0.1:
-                self.owner.current_frame = (self.owner.current_frame + 1) % len(self.owner.standing_frames)
-            else:
-                self.owner.current_frame = 0 
-
-            # Update the actual image
-            bottom = self.owner.rect.bottom
-            self.owner.image = self.owner.standing_frames[self.owner.current_frame]
-            self.owner.rect = self.owner.image.get_rect()
-            self.owner.rect.bottom = bottom
-
-class ParentState(Sprite):
-    def __init__(self, groups):
-        super.__init__(self, groups)
-        self.state = None 
-
-    def update_state(self, state_class):
-        if self.state:
-            self.state.exit()
-        self.state = state_class(self)
-        self.state.enter()
-
-    def update(self):
-        if self.state:
-            now = pg.time.get_ticks()
-            self.state.update(now)
-        
 
 
+"""
 def check_walking_state(self, now, rect):
     if self.vel != vec(0.0, 0.0):
         if now - self.last_update > 35:
@@ -199,6 +226,7 @@ def check_walking_state(self, now, rect):
                 recbottom = bottom
 
     return image, rect, recbottom
+"""
 
 def check_shooting_state(shoot_state, trace_bullet, game, rectx, recty):
     if shoot_state:
@@ -248,23 +276,7 @@ class Enemy(Sprite):
             direction = direction.normalize()
             self.pos += direction * self.speed
             self.rect.center = self.pos
-            self.hit_rect.center = self.pos
-        
-class Floor(Sprite):
-    def __init__(self, game, x, y):
-        self.groups = game.all_sprites, game.all_floors
-        Sprite.__init__(self, self.groups)
-        self.game = game
-        self.image = pg.Surface((TILESIZE, TILESIZE))
-        # simple tile; you can replace this with an actual image
-        self.image.fill((50, 50, 70))
-        pg.draw.rect(self.image, (60, 60, 80), self.image.get_rect(), 1)
-        self.rect = self.image.get_rect()
-        self.pos = vec(x, y) * TILESIZE
-        self.rect.center = self.pos
-
-    def update(self):
-        pass
+            self.hit_rect.center = self.pos 
         
 
 class Door(Sprite):

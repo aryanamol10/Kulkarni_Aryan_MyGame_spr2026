@@ -57,9 +57,7 @@ class Game:
         # Parse map data
         for row, tiles in enumerate(self.map.data):
             for col, tile in enumerate(tiles):
-                if tile == '.':
-                    self.all_floors.add(Floor(self, col, row))           # <‑‑ floor
-                elif tile == '1':
+                if tile == '1':
                     self.all_walls.add(Wall(self, col, row))
                 elif tile == 'P':
                     self.player = Player(self, col, row)
