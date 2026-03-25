@@ -62,13 +62,15 @@ class Game:
                 elif tile == 'P':
                     self.player = Player(self, col, row)
                     self.all_sprites.add(self.player)
-                elif tile in self.level_map:
-                    self.all_doors.add(Door(self, col, row))
-                elif tile in ['A', 'B', 'C', 'D']:
+                elif tile == 'D':
+                    self.all_doors.add(Door(self,col,row))
+
+                    """
                     boss = self.spawn_boss(tile, col, row)
                     if boss:
                         self.all_bosses.add(boss)
                         self.all_sprites.add(boss)
+                    """
 
         # add floors first so they render beneath everything else
         self.all_sprites.add(self.all_floors)
@@ -102,21 +104,26 @@ class Game:
                 self.running = False
             if event.type == pg.MOUSEBUTTONUP:
                 self.check_door_click(event.pos)
+            """
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_ESCAPE:
                     # Return to main level
                     self.current_level = "level_1"
                     self.new()
-                if event.key == pg.K_SPACE:
-                    # Player attack
-                    if hasattr(self, 'player'):
-                        self.player.attack()
+
+            """
+            if event.type == pg.K_SPACE:
+                # Player attack
+                if hasattr(self, 'player'):
+                    self.player.attack()
 
     def check_door_click(self, mouse_pos):
+        pass
         """Check if player clicked on a door to enter boss room"""
+        """
         for door in self.all_doors:
             door_screen_pos = self.camera.apply(door)
-            door_rect = door.image.get_rect(topleft=door_screen_pos)
+            door_rect = door.image.get_rect()
             
             if door_rect.collidepoint(mouse_pos):
                 # Get door type (A, B, C, D) from door_type attribute
@@ -126,6 +133,8 @@ class Game:
                     self.current_level = boss_room
                     self.new()
                 door.animate()
+
+        """
 
     def update(self):
         self.all_sprites.update()
@@ -208,10 +217,12 @@ class Game:
 if __name__ == "__main__":
     g = Game()
 
+if not g.running:
+    pg.quit()
+
 while g.running:
     g.new()
 
-pg.quit()
 
 
 

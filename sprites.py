@@ -204,30 +204,6 @@ class Player(ParentState):
 
 
 
-
-
-"""
-def check_walking_state(self, now, rect):
-    if self.vel != vec(0.0, 0.0):
-        if now - self.last_update > 35:
-                self.last_update = now
-                current_frame = (self.current_frame + 1) % len(self.standing_frames)
-                bottom = rect.bottom
-                image = self.standing_frames[self.current_frame]
-                rect = self.image.get_rect()
-                recbottom = bottom
-    elif self.vel == vec(0.0, 0.0):
-        if now - self.last_update > 35:
-                self.last_update = now
-                self.current_frame = 1
-                bottom = rect.bottom
-                image = self.standing_frames[self.current_frame]
-                rect = self.image.get_rect()
-                recbottom = bottom
-
-    return image, rect, recbottom
-"""
-
 def check_shooting_state(shoot_state, trace_bullet, game, rectx, recty):
     if shoot_state:
         trace_bullet.append(Bullet(game, rectx, recty))
