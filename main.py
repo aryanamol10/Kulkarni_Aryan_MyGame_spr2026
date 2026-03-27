@@ -62,7 +62,7 @@ class Game:
                 elif tile == 'P':
                     self.player = Player(self, col, row)
                     self.all_sprites.add(self.player)
-                elif tile == 'D':
+                elif tile in ['A','B','C','D']:
                     self.all_doors.add(Door(self,col,row))
 
                     """

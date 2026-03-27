@@ -37,13 +37,16 @@ class State():
         self.owner = owner
     def enter(self):
         pass
-    def update(self, now):
-        pass
+    def update(self, *args, **kargs):
+        if self.state:
+            now = pg.time.get_ticks()
+            self.state.update(now)
     def exit(self):
         pass
 
 class WalkingState(State):
-    def update(self, now):
+    def update(self):
+        now = pg.time.get_ticks()
         
         if now - self.owner.last_update > 100:
             self.owner.last_update = now
@@ -74,20 +77,22 @@ class ParentState(Sprite):
 
     def update(self):
         if self.state:
-            now = pg.time.get_ticks()
-            self.state.update(now)
+            self.state.update()
 
 class DoorClosedState(State):
-    def update(self, now):
+    def enter(self):
+        self.owner.image =  self.owner.door_states[0]
+    def update(self):
         if collide_hit_rect(self.owner.game.player, self.owner):
-            self.owner.change_state(DoorOpenState)
+            self.owner.update_state(DoorOpenState)
+
 
 class DoorOpenState(State):
     def enter(self):
         self.owner.image = self.owner.door_states[1] # Open frame
-    def update(self, now):
+    def update(self):
         if not collide_hit_rect(self.owner.game.player, self.owner):
-            self.owner.change_state(DoorClosedState)
+            self.owner.update_state(DoorClosedState)
 
 class CoinSpinState(State):
     def update(self, now):
@@ -96,8 +101,6 @@ class CoinSpinState(State):
             self.owner.current_frame = (self.owner.current_frame + 1) % len(self.owner.standing_frames)
             self.owner.image = self.owner.standing_frames[self.owner.current_frame]
         
-
-
 
             
 class Player(ParentState):
@@ -255,41 +258,35 @@ class Enemy(Sprite):
             self.hit_rect.center = self.pos 
         
 
-class Door(Sprite):
+class Door(ParentState):
     def __init__(self, game, x, y):
-        self.groups = game.all_sprites, game.all_doors
-        Sprite.__init__(self, self.groups)
+        self.groups = game.all_sprites
+        super().__init__(self.groups)
         self.game = game
         self.spritesheet = Spritesheet(path.join(self.game.img_dir, "door_animation.png"))
         self.image = pg.Surface((TILESIZE, TILESIZE))
-        self.image = self.spritesheet.get_image(0, 0, TILESIZE, TILESIZE)
+        self.image = self.spritesheet.get_image(0, 0, TILESIZE/2, TILESIZE)
         self.load_images()
         self.rect = self.image.get_rect()
         self.open_door = False
         self.current_door_state = 0
+        self.pos = vec(x*32,y*32)
+
+        self.update_state(DoorClosedState)
+        
 
     def load_images(self):
-        self.door_states = [self.spritesheet.get_image(0, 0, TILESIZE, TILESIZE), 
-                                self.spritesheet.get_image(TILESIZE, 0, TILESIZE, TILESIZE)]
+        self.door_states = [self.spritesheet.get_image(0, 0, TILESIZE/2, TILESIZE), 
+                                self.spritesheet.get_image(TILESIZE/2, 0, TILESIZE/2, TILESIZE)]
         for frame in self.door_states:
             frame.set_colorkey(BLACK)
 
-    def check_door_state(self):
-        now = pg.time.get_ticks()
-        if self.open_door:
-                self.last_update = now
-                self.current_door_state = (self.current_door_state + 1) % len(self.door_states)
-                bottom = self.rect.bottom
-                self.image = self.door_states[int(self.current_door_state)]
-                self.rect = self.image.get_rect()
-                self.rect.bottom = bottom
 
     def update(self):
-
+        self.rect.center = self.pos
         if hasattr(self.game, 'player'):
             self.open_door = collide_hit_rect(self.game.player, self)
-        self.check_door_state()
-
+        super().update()
 
 
 
