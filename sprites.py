@@ -90,6 +90,12 @@ class DoorClosedState(State):
 class DoorOpenState(State):
     def enter(self):
         self.owner.image = self.owner.door_states[1] # Open frame
+        # Immediately switch to Boss_1 level on collision with any door
+        try:
+            self.owner.game.current_level = 'Boss_1'
+            self.owner.game.new()
+        except Exception:
+            pass
     def update(self):
         if not collide_hit_rect(self.owner.game.player, self.owner):
             self.owner.update_state(DoorClosedState)
@@ -259,7 +265,7 @@ class Enemy(Sprite):
         
 
 class Door(ParentState):
-    def __init__(self, game, x, y):
+    def __init__(self, game, x, y, door_type=None):
         self.groups = game.all_sprites
         super().__init__(self.groups)
         self.game = game
@@ -270,7 +276,10 @@ class Door(ParentState):
         self.rect = self.image.get_rect()
         self.open_door = False
         self.current_door_state = 0
-        self.pos = vec(x*32,y*32)
+        # position in pixels
+        self.pos = vec(x * TILESIZE, y * TILESIZE)
+        # record the door's type so the game can map it to a boss level
+        self.door_type = door_type
 
         self.update_state(DoorClosedState)
         

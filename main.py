@@ -23,11 +23,20 @@ class Game:
         self.game_cooldown = Cooldown(5000)
         self.current_level = "level_1"
         self.level_map = {
-            'A': "boss_A",
+            'A': "Boss_1",
             'B': "boss_B", 
             'C': "boss_C",
             'D': "boss_D"
         }
+
+    def enter_boss_room(self, door_type):
+        """Switch to the boss map associated with a door type and restart the level."""
+        boss_room = self.level_map.get(door_type)
+        if boss_room:
+            print(f"Entering {boss_room}...")
+            self.current_level = boss_room
+            # Restart the level (this will recreate sprites and load the new map)
+            self.new()
     
     def load_data(self):
         self.game_dir = path.dirname(__file__)
@@ -63,7 +72,8 @@ class Game:
                     self.player = Player(self, col, row)
                     self.all_sprites.add(self.player)
                 elif tile in ['A','B','C','D']:
-                    self.all_doors.add(Door(self,col,row))
+                    # Pass the tile character so the Door knows its type
+                    self.all_doors.add(Door(self, col, row, tile))
 
                     """
                     boss = self.spawn_boss(tile, col, row)
