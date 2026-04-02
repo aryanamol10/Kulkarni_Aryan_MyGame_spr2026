@@ -23,11 +23,13 @@ class Game:
         self.playing = True
         self.game_cooldown = Cooldown(5000)
         self.current_level = "level_1"
+        self.narrative = NarrativeBox(self)
+        self.first_run = True
         self.level_map = {
             'A': "Boss_1",
-            'B': "boss_B", 
-            'C': "boss_C",
-            'D': "boss_D"
+            'B': "Boss_2", 
+            'C': "Boss_3",
+            'D': "Boss_4"
         }
 
     def enter_boss_room(self, door_type):
@@ -76,27 +78,33 @@ class Game:
                     # Pass the tile character so the Door knows its type
                     self.all_doors.add(Door(self, col, row, tile))
 
-                    """
-                    boss = self.spawn_boss(tile, col, row)
-                    if boss:
-                        self.all_bosses.add(boss)
-                        self.all_sprites.add(boss)
-                    """
-
         # add floors first so they render beneath everything else
         self.all_sprites.add(self.all_floors)
         self.all_sprites.add(self.all_walls)
         self.all_sprites.add(self.all_doors)
-        
+
+        # Prepare and show narratives (intro on first run, or boss flavor)
+        if self.first_run:
+            intro = "In a land of doors, there lived a hero seeking the heart of the dungeon."
+            intro += "\nEach threshold hides a challenge — choose wisely."
+            self.narrative.show([intro])
+            self.first_run = False
+
+        if self.current_level.lower().startswith('boss'):
+            name = self.current_level.replace('Boss_', 'Boss ').replace('Boss', 'Boss')
+            boss_text = f"You open the door to {name}. The air tastes of old battles..."
+            boss_text += "\nPrepare yourself."
+            self.narrative.show([boss_text])
+
         self.run()
 
     def spawn_boss(self, boss_type, col, row):
         """Spawn appropriate boss based on type"""
         bosses = {
-            'A': lambda: Enemy(self, col * TILESIZE, row * TILESIZE, speed=2, health=50),
-            'B': lambda: Enemy(self, col * TILESIZE, row * TILESIZE, speed=3, health=75),
-            'C': lambda: Enemy(self, col * TILESIZE, row * TILESIZE, speed=2.5, health=60),
-            'D': lambda: Enemy(self, col * TILESIZE, row * TILESIZE, speed=3.5, health=100)
+            'A': lambda: Enemy(self, col * TILESIZE, row * TILESIZE, 'A'),
+            'B': lambda: Enemy(self, col * TILESIZE, row * TILESIZE, 'B'),
+            'C': lambda: Enemy(self, col * TILESIZE, row * TILESIZE, 'C'),
+            'D': lambda: Enemy(self, col * TILESIZE, row * TILESIZE, 'D')
         }
         return bosses.get(boss_type, lambda: None)()
 
@@ -105,7 +113,9 @@ class Game:
         while self.running:
             self.dt = self.clock.tick(FPS) / 1000
             self.events()
-            self.update()
+            # let narrative block updates while active
+            if not (self.narrative and self.narrative.active):
+                self.update()
             self.draw()
 
     #Checking for actions like keyboard presses
@@ -115,7 +125,21 @@ class Game:
                 if self.playing:
                     self.playing = False
                 self.running = False
-            if event.type == pg.K_SPACE:
+
+            # pass events to narrative box first
+            if self.narrative and self.narrative.active:
+                self.narrative.handle_event(event)
+                continue
+
+            # ESC returns to beginning
+            if event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE:
+                self.current_level = 'level_1'
+                self.new()
+
+            if event.type == pg.MOUSEBUTTONUP:
+                self.check_door_click(event.pos)
+
+            if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
                 # Player attack
                 if hasattr(self, 'player'):
                     self.player.attack()
@@ -177,7 +201,11 @@ class Game:
         else:
             self.all_sprites.draw(self.screen)
             self.all_bullets.draw(self.screen)
-        
+
+        # draw narrative overlay if active
+        if self.narrative and self.narrative.active:
+            self.narrative.draw()
+
         pg.display.flip()
 
     def draw_game_background(self):
@@ -280,12 +308,5 @@ if __name__ == "__main__":
     g = Game()
     # Show opening title screen; returns to start the first level when PLAY is clicked
     g.title_screen()
-    while g.running:
-        g.new()
+    g.new()
     pg.quit()
-
-
-
-
-
-
