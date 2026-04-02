@@ -193,7 +193,18 @@ class Player(ParentState):
             dir_vec = vec(1, 0)
 
         # spawn slightly in front of the player
-        spawn_pos = self.pos + dir_vec * (TILESIZE // 2)
+        # displace spawn up to the player's head so animation looks synced
+        head_offset = vec(0, -TILESIZE * 0.25)
+        spawn_pos = self.pos + dir_vec * (TILESIZE // 2) + head_offset
+        # small visual spark at head when shooting
+        try:
+            spark = pg.Surface((6, 6), pg.SRCALPHA)
+            pg.draw.circle(spark, (180, 220, 255), (3, 3), 3)
+            # blit immediate tiny spark to screen (camera aware)
+            if hasattr(self.game, 'camera'):
+                self.game.screen.blit(spark, self.game.camera.apply(self).move(0, -TILESIZE//4))
+        except Exception:
+            pass
         Bullet(self.game, spawn_pos, dir_vec)
 
     def take_damage(self, damage):
@@ -583,8 +594,24 @@ class Bullet(Sprite):
         self.groups = game.all_sprites, game.all_bullets
         Sprite.__init__(self, self.groups)
         self.game = game
-        self.image = pg.Surface((8, 8))
-        self.image.fill(YELLOW)
+        # Try to create a projectile image from the player's sprite for animation
+        self.image = None
+        try:
+            if hasattr(game, 'player') and getattr(game.player, 'image', None) is not None:
+                # scale down player's current frame to make a bullet frame
+                base = pg.transform.smoothscale(game.player.image, (10, 10)).convert_alpha()
+                # tint to blue for Megaman-style projectile
+                tint = pg.Surface(base.get_size(), pg.SRCALPHA)
+                tint.fill((80, 160, 255, 180))
+                base.blit(tint, (0, 0), special_flags=pg.BLEND_RGBA_MULT)
+                self.image = base
+        except Exception:
+            self.image = None
+
+        # Fallback: simple blue circle if we couldn't make a sprite-based bullet
+        if self.image is None:
+            self.image = pg.Surface((8, 8), pg.SRCALPHA)
+            pg.draw.circle(self.image, (80, 160, 255), (4, 4), 4)
         self.rect = self.image.get_rect()
         # position as vector for smooth movement
         self.pos = vec(pos)
