@@ -8,6 +8,9 @@ import math
 vec = pg.math.Vector2
 
 def collide_hit_rect(one, two):
+    # Floors should not block movement — skip collision if either side is a floor
+    if getattr(one, 'is_floor', False) or getattr(two, 'is_floor', False):
+        return False
     return one.hit_rect.colliderect(two.rect)
 
 def collide_with_walls(sprite, group, dir):
@@ -332,6 +335,9 @@ class Enemy(Sprite):
         self.rect = self.image.get_rect()
         self.rect.center = (int(self.pos.x), int(self.pos.y))
 
+        # physics velocity vector (used by collision helpers)
+        self.vel = vec(0, 0)
+
         # attack timing
         self.last_shot = 0
 
@@ -380,7 +386,7 @@ class Enemy(Sprite):
 
         if self.turret:
             # turret stays in place
-            pass
+            self.vel = vec(0, 0)
         else:
             if self.zigzag and dist > 8:
                 perp = vec(-direction.y, direction.x)
@@ -388,10 +394,13 @@ class Enemy(Sprite):
                 move = (direction + perp * offset)
                 if move.length() > 0:
                     move = move.normalize()
-                self.pos += move * self.speed * self.game.dt
+                self.vel = move * self.speed
             else:
                 # simple chase
-                self.pos += direction * self.speed * self.game.dt
+                self.vel = direction * self.speed
+
+            # integrate velocity
+            self.pos += self.vel * self.game.dt
 
         self.rect.center = (int(self.pos.x), int(self.pos.y))
         self.hit_rect.center = self.pos
@@ -461,6 +470,8 @@ class Floor(Sprite):
         self.groups = game.all_sprites, game.all_floors
         Sprite.__init__(self, self.groups)
         self.game = game
+        # mark as non-collidable surface for movement checks
+        self.is_floor = True
         self.image = pg.Surface((TILESIZE, TILESIZE))
         # subtle floor pattern
         self.image.fill((30, 30, 50))

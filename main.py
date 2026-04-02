@@ -78,6 +78,10 @@ class Game:
         # Parsing map data: spawn sprites according to tile legend
         for row, tiles in enumerate(self.map.data):
             for col, tile in enumerate(tiles):
+                # draw a floor under any non-wall tile so map looks consistent
+                if tile != '1' and tile != '.':
+                    Floor(self, col, row)
+
                 if tile == '1':
                     Wall(self, col, row)
                 elif tile == 'P':
@@ -92,6 +96,7 @@ class Game:
                     except Exception:
                         pass
                 elif tile == '.':
+                    # explicit floor marker
                     Floor(self, col, row)
                 elif tile == 'T':
                     trap = Trap(self, col, row)
@@ -244,16 +249,34 @@ class Game:
         boss_count = len(self.all_bosses)
         self.draw_text(f"Bosses: {boss_count}", 20, YELLOW, WIDTH - 150, TILESIZE)
         
-        # Draw all sprites with camera offset
+        # Draw all sprites with camera offset. Ensure floor tiles render beneath other sprites.
         if hasattr(self, 'camera'):
+            # draw floors first
+            for floor in self.all_floors:
+                self.screen.blit(floor.image, self.camera.apply(floor))
+            # draw walls, doors, coins, bosses, enemies, player, etc.
             for sprite in self.all_sprites:
+                if getattr(sprite, 'is_floor', False):
+                    continue
+                # bullets will be drawn after sprites for proper layering
+                if sprite in self.all_bullets:
+                    continue
                 self.screen.blit(sprite.image, self.camera.apply(sprite))
-            # Draw bullets separately if they exist
+            # Draw bullets separately so they appear above sprites
             for bullet in self.all_bullets:
                 self.screen.blit(bullet.image, self.camera.apply(bullet))
         else:
-            self.all_sprites.draw(self.screen)
-            self.all_bullets.draw(self.screen)
+            # no camera: draw floors first, then others
+            for floor in self.all_floors:
+                self.screen.blit(floor.image, floor.rect)
+            for sprite in self.all_sprites:
+                if getattr(sprite, 'is_floor', False):
+                    continue
+                if sprite in self.all_bullets:
+                    continue
+                self.screen.blit(sprite.image, sprite.rect)
+            for bullet in self.all_bullets:
+                self.screen.blit(bullet.image, bullet.rect)
 
         # draw narrative overlay if active
         if self.narrative and self.narrative.active:
