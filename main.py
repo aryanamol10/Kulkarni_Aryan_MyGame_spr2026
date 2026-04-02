@@ -11,6 +11,7 @@ from os import path
 from settings import *
 from sprites import *
 from utils import *
+import random as rand
 
 class Game:
     def __init__(self):
@@ -114,8 +115,6 @@ class Game:
                 if self.playing:
                     self.playing = False
                 self.running = False
-            if event.type == pg.MOUSEBUTTONUP:
-                self.check_door_click(event.pos)
             if event.type == pg.K_SPACE:
                 # Player attack
                 if hasattr(self, 'player'):
@@ -200,14 +199,90 @@ class Game:
         text_rect.midtop = (x, y)
         self.screen.blit(text_surface, text_rect)
 
+    def title_screen(self):
+        """Display an opening title screen with a Start button."""
+        title = TITLE
+        subtitle = "A Tiny Dungeon Adventure"
+        btn_text = "PLAY"
+
+        clock = pg.time.Clock()
+        btn_w, btn_h = 300, 80
+        btn_rect = pg.Rect((WIDTH - btn_w) // 2, (HEIGHT // 2) + 40, btn_w, btn_h)
+
+        # Simple animated background stars
+        stars = [[pg.Vector2(rand.randint(0, WIDTH), rand.randint(0, HEIGHT)), rand.randint(1, 3)] for _ in range(40)]
+
+        running = True
+        while running and self.running:
+            dt = clock.tick(FPS) / 1000
+            for event in pg.event.get():
+                if event.type == pg.QUIT:
+                    self.running = False
+                    running = False
+                if event.type == pg.MOUSEBUTTONDOWN:
+                    if btn_rect.collidepoint(event.pos):
+                        running = False
+
+            mpos = pg.mouse.get_pos()
+            hover = btn_rect.collidepoint(mpos)
+
+            # draw gradient background
+            for i in range(HEIGHT):
+                c = 8 + int(80 * (i / HEIGHT))
+                pg.draw.line(self.screen, (c, c // 2, c + 20), (0, i), (WIDTH, i))
+
+            # update & draw stars
+            for s in stars:
+                s[0].y += s[1]
+                if s[0].y > HEIGHT:
+                    s[0].y = 0
+                    s[0].x = rand.randint(0, WIDTH)
+                pg.draw.circle(self.screen, (255, 255, 220), (int(s[0].x), int(s[0].y)), s[1])
+
+            # Title
+            title_font = pg.font.Font(pg.font.match_font('arial'), 64)
+            title_surf = title_font.render(title, True, (230, 230, 255))
+            title_rect = title_surf.get_rect(center=(WIDTH // 2, HEIGHT // 3))
+            self.screen.blit(title_surf, title_rect)
+
+            # Subtitle
+            sub_font = pg.font.Font(pg.font.match_font('arial'), 20)
+            sub_surf = sub_font.render(subtitle, True, (200, 200, 220))
+            sub_rect = sub_surf.get_rect(center=(WIDTH // 2, HEIGHT // 3 + 60))
+            self.screen.blit(sub_surf, sub_rect)
+
+            # Start button
+            btn_color = (80, 200, 120) if hover else (50, 150, 90)
+            border_color = (255, 255, 255) if hover else (200, 200, 200)
+            pg.draw.rect(self.screen, btn_color, btn_rect, border_radius=12)
+            pg.draw.rect(self.screen, border_color, btn_rect, 4, border_radius=12)
+
+            btn_font = pg.font.Font(pg.font.match_font('arial'), 36)
+            btn_surf = btn_font.render(btn_text, True, (20, 20, 30))
+            btn_rect_text = btn_surf.get_rect(center=btn_rect.center)
+            self.screen.blit(btn_surf, btn_rect_text)
+
+            # small hint
+            hint = "Click to start or press ESC to quit"
+            hint_surf = sub_font.render(hint, True, (180, 180, 200))
+            hint_rect = hint_surf.get_rect(center=(WIDTH // 2, HEIGHT - 40))
+            self.screen.blit(hint_surf, hint_rect)
+
+            # keyboard shortcuts
+            keys = pg.key.get_pressed()
+            if keys[pg.K_ESCAPE]:
+                self.running = False
+                running = False
+
+            pg.display.flip()
+
 if __name__ == "__main__":
     g = Game()
-
-if not g.running:
+    # Show opening title screen; returns to start the first level when PLAY is clicked
+    g.title_screen()
+    while g.running:
+        g.new()
     pg.quit()
-
-while g.running:
-    g.new()
 
 
 
