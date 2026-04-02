@@ -44,11 +44,11 @@ class State():
     def exit(self):
         pass
 
-class WalkingState(State):
+class WalkingRightState(State):
     def update(self):
         now = pg.time.get_ticks()
         
-        if now - self.owner.last_update > 100:
+        if now - self.owner.last_update > 50:
             self.owner.last_update = now
             
             
@@ -62,6 +62,26 @@ class WalkingState(State):
             self.owner.image = self.owner.standing_frames[self.owner.current_frame]
             self.owner.rect = self.owner.image.get_rect()
             self.owner.rect.bottom = bottom
+
+class WalkingLeftState(State):
+    def update(self):
+        now = pg.time.get_ticks()
+        
+        if now - self.owner.last_update > 50:
+            self.owner.last_update = now
+            
+            
+            if self.owner.vel.length() > 0.1:
+                self.owner.current_frame = (self.owner.current_frame + 1) % len(self.owner.standing_frames)
+            else:
+                self.owner.current_frame = 0 
+
+            # Update the actual image
+            bottom = self.owner.rect.bottom
+            self.owner.image = pg.transform.flip(self.owner.standing_frames[self.owner.current_frame], True, False)
+            self.owner.rect = self.owner.image.get_rect()
+            self.owner.rect.bottom = bottom
+        
 
 
 class ParentState(Sprite):
@@ -89,10 +109,18 @@ class DoorClosedState(State):
 
 class DoorOpenState(State):
     def enter(self):
-        self.owner.image = self.owner.door_states[1] # Open frame
+        self.owner.image = self.owner.door_states[1]
         # Immediately switch to Boss_1 level on collision with any door
         try:
-            self.owner.game.current_level = 'Boss_1'
+            match self.owner.door_type:
+                case "A":
+                    self.owner.game.current_level = 'Boss_1'
+                case "B":
+                    self.owner.game.current_level = "Boss_2"
+                case "C":
+                    self.owner.game.current_level = "Boss_3"
+                case "D":
+                    self.owner.game.current_level = "Boss_4"
             self.owner.game.new()
         except Exception:
             pass
@@ -106,6 +134,8 @@ class CoinSpinState(State):
             self.owner.last_update = now
             self.owner.current_frame = (self.owner.current_frame + 1) % len(self.owner.standing_frames)
             self.owner.image = self.owner.standing_frames[self.owner.current_frame]
+
+
         
 
             
@@ -137,7 +167,7 @@ class Player(ParentState):
         self.shooting_state = False
 
 
-        self.update_state(WalkingState)
+        self.update_state(WalkingRightState)
 
 
     def attack(self):
@@ -157,6 +187,16 @@ class Player(ParentState):
         """Player bounces back from collision"""
         self.vel *= -0.5
 
+    def change_dir(self, direction):
+        try:
+            if direction == "right":
+                self.update_state(WalkingRightState)
+            if direction == "left":
+                self.update_state (WalkingLeftState)
+
+        except Exception:
+            pass
+
     def update(self):
         pressed_keys = pg.key.get_pressed()
         self.shoot_cooldown += 1
@@ -171,15 +211,15 @@ class Player(ParentState):
 
         if pressed_keys[pg.K_UP] or pressed_keys[pg.K_w]:
             self.acceleration.y = -PLAYER_ACCEL
-            self.direction_facing = "up"
 
         if pressed_keys[pg.K_DOWN] or pressed_keys[pg.K_s]:
             self.acceleration.y = PLAYER_ACCEL
-            self.direction_facing = "down"
 
         if pressed_keys[pg.K_SPACE]:
             self.shoot_state = True
 
+
+        self.change_dir(self.direction_facing)
         #self.state_check()
         super().update()
 
