@@ -3,6 +3,7 @@ from pygame.sprite import Sprite
 from settings import *
 from utils import *
 from os import path
+import math
 
 vec = pg.math.Vector2
 
@@ -289,54 +290,205 @@ def check_shooting_state(shoot_state, trace_bullet, game, pos, direction):
 
     
 class Enemy(Sprite):
-    def __init__(self, game, col, row, boss_type):
-        # Add to both all_sprites and all_bosses groups
+    def __init__(self, game, col, row, enemy_type):
+        # Add to both all_sprites and all_bosses groups (used for collision checks)
         self.groups = game.all_sprites, game.all_bosses
         Sprite.__init__(self, self.groups)
         self.game = game
-        self.image = pg.Surface((TILESIZE, TILESIZE))
-        self.image.fill(RED)
-        self.rect = self.image.get_rect()
-        self.vel = vec(0, 0)
+        self.type = enemy_type
 
-        # position (col,row are tile coords)
-        self.pos = vec(col * TILESIZE, row * TILESIZE)
+        # position (col,row are tile coords); center within tile
+        self.pos = vec(col * TILESIZE + TILESIZE / 2, row * TILESIZE + TILESIZE / 2)
+        self.rect = pg.Rect(0, 0, TILESIZE, TILESIZE)
         self.rect.center = (int(self.pos.x), int(self.pos.y))
 
         # hit rect and physics
         self.hit_rect = ENEMY_HIT_RECT.copy()
         self.hit_rect.center = self.pos
 
-        # Boss Difficulty Scaling (health) and movement speed (px/sec)
-        stats = {'A': 50, 'B': 100, 'C': 150, 'D': 300}
-        self.health = stats.get(boss_type, 50)
-        self.speed = 120
+        # Type-specific stats
+        template = {
+            'A': {'health': 180, 'speed': 90, 'color': (200, 50, 50), 'ranged': False, 'zigzag': False, 'turret': False},
+            'B': {'health': 120, 'speed': 60, 'color': (40, 120, 200), 'ranged': True, 'shoot_delay': 1200},
+            'C': {'health': 140, 'speed': 80, 'color': (140, 60, 180), 'zigzag': True},
+            'D': {'health': 260, 'speed': 40, 'color': (200, 160, 40), 'ranged': True, 'turret': True, 'shoot_delay': 900},
+            'E': {'health': 32,  'speed': 140, 'color': (200, 90, 140), 'ranged': False}
+        }
+        stats = template.get(enemy_type, template['E'])
+        self.health = stats['health']
+        self.max_health = self.health
+        self.speed = stats.get('speed', 80)
+        self.color = stats.get('color', RED)
+        self.ranged = stats.get('ranged', False)
+        self.zigzag = stats.get('zigzag', False)
+        self.turret = stats.get('turret', False)
+        self.shoot_delay = stats.get('shoot_delay', 1000)
+
+        # animation frames (procedural)
+        self.standing_frames = self._make_frames()
+        self.current_frame = 0
+        self.last_update = 0
+        self.image = self.standing_frames[0]
+        self.rect = self.image.get_rect()
+        self.rect.center = (int(self.pos.x), int(self.pos.y))
+
+        # attack timing
+        self.last_shot = 0
 
     def take_damage(self, damage):
         """Boss takes damage from player bullets"""
         self.health -= damage
-        print(f"Boss health: {self.health}")
+        # flash or knockback could be added here
+        if self.health <= 0:
+            self.kill()
+        print(f"Enemy {self.type} hit! Health: {self.health}")
+
+    def _make_frames(self):
+        frames = []
+        for i in range(4):
+            surf = pg.Surface((TILESIZE, TILESIZE), pg.SRCALPHA)
+            surf.fill((0, 0, 0, 0))
+            # body
+            shade = tuple(max(0, min(255, c + i * 8 - 8)) for c in self.color)
+            pg.draw.circle(surf, shade, (TILESIZE // 2, TILESIZE // 2), TILESIZE // 2 - 2)
+            # eyes
+            eye_x = 9 if i % 2 == 0 else 11
+            pg.draw.circle(surf, (255, 255, 255), (TILESIZE // 2 - eye_x, TILESIZE // 2 - 6), 3)
+            pg.draw.circle(surf, (255, 255, 255), (TILESIZE // 2 + eye_x, TILESIZE // 2 - 6), 3)
+            frames.append(surf)
+        return frames
 
     def update(self):
-        if hasattr(self.game, 'player'):
-            self.seek(self.game.player.pos.x, self.game.player.pos.y)
+        now = pg.time.get_ticks()
+        # animate
+        if now - self.last_update > 140:
+            self.last_update = now
+            self.current_frame = (self.current_frame + 1) % len(self.standing_frames)
+            self.image = self.standing_frames[self.current_frame]
 
-        # handle collisions with walls properly
+        if not hasattr(self.game, 'player'):
+            return
+
+        # decide movement pattern
+        player_vec = self.game.player.pos
+        dir_vec = player_vec - self.pos
+        dist = dir_vec.length()
+        if dist > 0:
+            direction = dir_vec.normalize()
+        else:
+            direction = vec(0, 0)
+
+        if self.turret:
+            # turret stays in place
+            pass
+        else:
+            if self.zigzag and dist > 8:
+                perp = vec(-direction.y, direction.x)
+                offset = math.sin(pg.time.get_ticks() / 220.0) * 0.5
+                move = (direction + perp * offset)
+                if move.length() > 0:
+                    move = move.normalize()
+                self.pos += move * self.speed * self.game.dt
+            else:
+                # simple chase
+                self.pos += direction * self.speed * self.game.dt
+
+        self.rect.center = (int(self.pos.x), int(self.pos.y))
+        self.hit_rect.center = self.pos
+
+        # collisions
         collide_with_walls(self, self.game.all_walls, 'x')
-        self.hit_rect.centery = self.pos.y
         collide_with_walls(self, self.game.all_walls, 'y')
-        self.hit_rect.centerx = self.pos.x
 
-    def seek(self, player_centerx, player_centery):
-        """Seek and move towards player"""
-        target_pos = pg.math.Vector2(player_centerx, player_centery)
-        direction = target_pos - self.pos
-        if direction.length() > 0:
-            direction = direction.normalize()
-            # movement scaled by delta-time
-            self.pos += direction * self.speed * getattr(self.game, 'dt', 1)
-            self.rect.center = (int(self.pos.x), int(self.pos.y))
-            self.hit_rect.center = self.pos 
+        # ranged attack logic
+        if (self.ranged or self.turret) and dist < 800:
+            if now - self.last_shot > self.shoot_delay:
+                self.last_shot = now
+                self.shoot_at_player()
+
+        # draw healthbar overlay onto image for feedback
+        self._draw_healthbar()
+
+    def shoot_at_player(self):
+        # spawn an enemy bullet toward the player
+        if not hasattr(self.game, 'player'):
+            return
+        direction = (self.game.player.pos - self.pos)
+        if direction.length() == 0:
+            direction = vec(1, 0)
+        EnemyBullet(self.game, vec(self.pos), direction.normalize())
+
+    def _draw_healthbar(self):
+        # render a small health bar above the enemy onto the image
+        try:
+            bar_w = TILESIZE - 6
+            bar_h = 6
+            hp_ratio = max(0, min(1, self.health / max(1, self.max_health)))
+            bar_surf = pg.Surface((bar_w, bar_h), pg.SRCALPHA)
+            # background
+            pg.draw.rect(bar_surf, (30, 30, 30), (0, 0, bar_w, bar_h), border_radius=3)
+            # fill
+            pg.draw.rect(bar_surf, (200, 60, 60), (1, 1, int((bar_w - 2) * hp_ratio), bar_h - 2), border_radius=2)
+            # blit onto a copy of base frame
+            base = self.standing_frames[self.current_frame].copy()
+            base.blit(bar_surf, (3, 2))
+            self.image = base
+        except Exception:
+            pass
+
+
+class EnemyBullet(Sprite):
+    def __init__(self, game, pos, direction):
+        self.groups = game.all_sprites, getattr(game, 'all_enemy_bullets', pg.sprite.Group())
+        Sprite.__init__(self, self.groups)
+        self.game = game
+        self.image = pg.Surface((6, 6), pg.SRCALPHA)
+        pg.draw.circle(self.image, (255, 160, 120), (3, 3), 3)
+        self.pos = vec(pos)
+        self.rect = self.image.get_rect(center=(int(self.pos.x), int(self.pos.y)))
+        self.vel = vec(direction).normalize() * 360
+
+    def update(self):
+        self.pos += self.vel * self.game.dt
+        self.rect.center = (int(self.pos.x), int(self.pos.y))
+        # kill when offscreen
+        if not (0 <= self.rect.x <= WIDTH and 0 <= self.rect.y <= HEIGHT):
+            self.kill()
+
+
+class Floor(Sprite):
+    def __init__(self, game, x, y):
+        self.groups = game.all_sprites, game.all_floors
+        Sprite.__init__(self, self.groups)
+        self.game = game
+        self.image = pg.Surface((TILESIZE, TILESIZE))
+        # subtle floor pattern
+        self.image.fill((30, 30, 50))
+        for i in range(0, TILESIZE, 8):
+            pg.draw.line(self.image, (24, 24, 36), (i, 0), (i, TILESIZE), 1)
+        self.rect = self.image.get_rect(topleft=(x * TILESIZE, y * TILESIZE))
+
+
+class Trap(Sprite):
+    def __init__(self, game, x, y, damage=10):
+        self.groups = game.all_sprites, getattr(game, 'all_traps', pg.sprite.Group())
+        Sprite.__init__(self, self.groups)
+        self.game = game
+        self.image = pg.Surface((TILESIZE, TILESIZE))
+        self.image.fill((100, 10, 10))
+        # visual hazard
+        pg.draw.rect(self.image, (220, 80, 80), (4, 4, TILESIZE - 8, TILESIZE - 8), 2)
+        self.rect = self.image.get_rect(topleft=(x * TILESIZE, y * TILESIZE))
+        self.pos = vec(x * TILESIZE + TILESIZE / 2, y * TILESIZE + TILESIZE / 2)
+        self.damage = damage
+
+    def update(self):
+        # damage player on overlap
+        if hasattr(self.game, 'player'):
+            if self.rect.colliderect(self.game.player.hit_rect):
+                self.game.player.take_damage(self.damage)
+                # optional: deactivate trap after triggered
+                self.kill()
         
 
 #Door calls simple Open/Close state that enables us to open and close / enter

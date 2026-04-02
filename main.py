@@ -56,6 +56,8 @@ class Game:
         self.all_floors  = pg.sprite.Group()
         self.all_walls   = pg.sprite.Group()
         self.all_doors   = pg.sprite.Group()
+        self.all_enemy_bullets = pg.sprite.Group()
+        self.all_traps = pg.sprite.Group()
         self.all_bosses  = pg.sprite.Group()
         self.all_coins   = pg.sprite.Group()
         self.all_bullets = pg.sprite.Group()
@@ -64,37 +66,51 @@ class Game:
         map_file = path.join(self.game_dir, f'Levels/{self.current_level}.txt')
         self.map = Map(map_file)
         
-        # Initialize camera using map dimensions
+        # Initialize camera using map dimensions (pixels)
         map_height = self.map.tileheight * TILESIZE
-        self.camera = Camera(self.map.width, map_height)
-        
-        # Parsing map data
+
+        # Ensure sub-groups exist (they are created above but keep safe)
+        self.all_coins = getattr(self, 'all_coins', pg.sprite.Group())
+        self.all_bullets = getattr(self, 'all_bullets', pg.sprite.Group())
+        self.all_enemy_bullets = getattr(self, 'all_enemy_bullets', pg.sprite.Group())
+        self.all_traps = getattr(self, 'all_traps', pg.sprite.Group())
+
+        # Parsing map data: spawn sprites according to tile legend
         for row, tiles in enumerate(self.map.data):
             for col, tile in enumerate(tiles):
                 if tile == '1':
-                    self.all_walls.add(Wall(self, col, row))
+                    Wall(self, col, row)
                 elif tile == 'P':
+                    # Player spawn
                     self.player = Player(self, col, row)
-                    self.all_sprites.add(self.player)
+                    # Camera follows the player; initialize once player exists
+                    self.camera = Camera(self.map.width, self.map.tileheight * TILESIZE)
                 elif tile == 'o':
-                    # spawn a coin (lowercase 'o')
                     coin = Coin(self, col, row)
-                    self.all_sprites.add(coin)
-                    self.all_coins.add(coin)
+                    try:
+                        self.all_coins.add(coin)
+                    except Exception:
+                        pass
+                elif tile == '.':
+                    Floor(self, col, row)
+                elif tile == 'T':
+                    trap = Trap(self, col, row)
+                    try:
+                        self.all_traps.add(trap)
+                    except Exception:
+                        pass
                 elif tile == 'E':
-                    # spawn a generic enemy (map uses 'E' for enemy)
-                    Enemy(self, col, row, tile)
-                elif tile in ['A','B','C','D']:
-                    # In boss maps, treat A-D as boss spawn points; otherwise create doors
+                    Enemy(self, col, row, 'E')
+                elif tile in ['A', 'B', 'C', 'D']:
+                    # Door tiles for normal levels; boss spawn points in boss maps
                     if self.current_level.lower().startswith('boss'):
                         Enemy(self, col, row, tile)
                     else:
-                        self.all_doors.add(Door(self, col, row, tile))
-
-        # add floors first so they render beneath everything else
-        self.all_sprites.add(self.all_floors)
-        self.all_sprites.add(self.all_walls)
-        self.all_sprites.add(self.all_doors)
+                        door = Door(self, col, row, tile)
+                        try:
+                            self.all_doors.add(door)
+                        except Exception:
+                            pass
 
         # Prepare and show narratives (intro on first run, or boss flavor)
         if self.first_run:
