@@ -32,6 +32,8 @@ def collide_with_walls(sprite, group, dir):
             sprite.hit_rect.centery = sprite.pos.y
 
 
+#State machine logic: allows us to call ParentState and switch
+#between other objects and classes like MovingState, OpenState, etc.
 class State():
     def __init__(self, owner):
         self.owner = owner
@@ -110,7 +112,7 @@ class DoorClosedState(State):
 class DoorOpenState(State):
     def enter(self):
         self.owner.image = self.owner.door_states[1]
-        # Immediately switch to Boss_1 level on collision with any door
+        # Immediately switch certain level based on corresponding door
         try:
             match self.owner.door_type:
                 case "A":
@@ -128,6 +130,7 @@ class DoorOpenState(State):
         if not collide_hit_rect(self.owner.game.player, self.owner):
             self.owner.update_state(DoorClosedState)
 
+#Keep coining spinning
 class CoinSpinState(State):
     def update(self, now):
         if now - self.owner.last_update > 350:
@@ -135,8 +138,6 @@ class CoinSpinState(State):
             self.owner.current_frame = (self.owner.current_frame + 1) % len(self.owner.standing_frames)
             self.owner.image = self.owner.standing_frames[self.owner.current_frame]
 
-
-        
 
             
 class Player(ParentState):
@@ -187,6 +188,7 @@ class Player(ParentState):
         """Player bounces back from collision"""
         self.vel *= -0.5
 
+    #reverse direction basically (flip or transform the model)
     def change_dir(self, direction):
         try:
             if direction == "right":
@@ -252,7 +254,7 @@ class Player(ParentState):
             frame.set_colorkey(BLACK)
 
 
-
+#Still work in progress but almost able to work
 def check_shooting_state(shoot_state, trace_bullet, game, rectx, recty):
     if shoot_state:
         trace_bullet.append(Bullet(game, rectx, recty))
@@ -304,6 +306,7 @@ class Enemy(Sprite):
             self.hit_rect.center = self.pos 
         
 
+#Door calls simple Open/Close state that enables us to open and close / enter
 class Door(ParentState):
     def __init__(self, game, x, y, door_type=None):
         self.groups = game.all_sprites
@@ -339,7 +342,7 @@ class Door(ParentState):
 
 
 
-
+#Simple coin animation (needs to be implemented to map still)
 class Coin(Sprite):
     def __init__(self, game, x, y):
         self.groups = game.all_sprites
@@ -377,7 +380,7 @@ class Coin(Sprite):
     def update(self):
         self.animate()
 
-
+#Bullet class which can be iterated as we append through space trigger
 class Bullet(Sprite):
     def __init__(self, game, pos, direction):
         self.groups = game.all_sprites, game.all_bullets
@@ -394,6 +397,7 @@ class Bullet(Sprite):
         if not (0 < self.rect.x < WIDTH and 0 < self.rect.y < HEIGHT):
             self.kill()
 
+#Blocks for bounds of map (useful and can be adjusted for custom animation)
 class Wall(Sprite):
     def __init__(self, game, x, y):
         self.groups = game.all_sprites, game.all_walls

@@ -47,9 +47,9 @@ class Game:
     def new(self):
         self.load_data()
         
-        # sprite groups
+        # these are the sprite groups we use
         self.all_sprites = pg.sprite.Group()
-        self.all_floors  = pg.sprite.Group()    # <‑‑ new
+        self.all_floors  = pg.sprite.Group()
         self.all_walls   = pg.sprite.Group()
         self.all_doors   = pg.sprite.Group()
         self.all_bosses  = pg.sprite.Group()
@@ -63,7 +63,7 @@ class Game:
         map_height = self.map.tileheight * TILESIZE
         self.camera = Camera(self.map.width, map_height)
         
-        # Parse map data
+        # Parsing map data
         for row, tiles in enumerate(self.map.data):
             for col, tile in enumerate(tiles):
                 if tile == '1':
@@ -99,6 +99,7 @@ class Game:
         }
         return bosses.get(boss_type, lambda: None)()
 
+    #running all of our functions here
     def run(self):
         while self.running:
             self.dt = self.clock.tick(FPS) / 1000
@@ -106,6 +107,7 @@ class Game:
             self.update()
             self.draw()
 
+    #Checking for actions like keyboard presses
     def events(self):
         for event in pg.event.get():
             if event.type == pg.QUIT:
@@ -114,37 +116,10 @@ class Game:
                 self.running = False
             if event.type == pg.MOUSEBUTTONUP:
                 self.check_door_click(event.pos)
-            """
-            if event.type == pg.KEYDOWN:
-                if event.key == pg.K_ESCAPE:
-                    # Return to main level
-                    self.current_level = "level_1"
-                    self.new()
-
-            """
             if event.type == pg.K_SPACE:
                 # Player attack
                 if hasattr(self, 'player'):
                     self.player.attack()
-
-    def check_door_click(self, mouse_pos):
-        pass
-        """Check if player clicked on a door to enter boss room"""
-        """
-        for door in self.all_doors:
-            door_screen_pos = self.camera.apply(door)
-            door_rect = door.image.get_rect()
-            
-            if door_rect.collidepoint(mouse_pos):
-                # Get door type (A, B, C, D) from door_type attribute
-                boss_room = self.level_map.get(door.door_type)
-                if boss_room:
-                    print(f"Entering {boss_room}...")
-                    self.current_level = boss_room
-                    self.new()
-                door.animate()
-
-        """
 
     def update(self):
         self.all_sprites.update()
@@ -174,14 +149,14 @@ class Game:
                     if hasattr(boss, 'health') and boss.health <= 0:
                         boss.kill()
         
-        # Update camera to follow player
+        # Updating camera to follow player
         if hasattr(self, 'camera') and hasattr(self, 'player'):
             self.camera.update(self.player)
     
     def draw(self):
         self.draw_game_background()
         
-        # Draw UI
+        # draw the interface here
         self.draw_text(f"Level: {self.current_level}", 24, WHITE, WIDTH/2, TILESIZE)
         self.draw_text("Click doors to enter boss room | ESC to return | SPACE to attack", 14, YELLOW, WIDTH/2, TILESIZE + 30)
         
@@ -207,7 +182,7 @@ class Game:
         pg.display.flip()
 
     def draw_game_background(self):
-        # leave the transparent grid overlay but do not clear to solid
+        # leave  grid overlay but do not clear to solid
         # the floor sprites now draw a textured ground
         self.screen.fill((20, 20, 30))   # keep a dark fill in case of gaps
         grid_size = TILESIZE
@@ -216,6 +191,7 @@ class Game:
         for y in range(0, HEIGHT, grid_size):
             pg.draw.line(self.screen, (40, 40, 50), (0, y), (WIDTH, y), 1)
 
+    # Fonts.. can be adjusted as needed
     def draw_text(self, text, size, color, x, y):
         font_name = pg.font.match_font('arial')
         font = pg.font.Font(font_name, size)
