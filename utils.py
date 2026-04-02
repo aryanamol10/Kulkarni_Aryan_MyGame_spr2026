@@ -1,6 +1,7 @@
 import pygame as pg
 from settings import *
 
+#Our baseline map, using length bounds through set tilemapping
 class Map:
     def __init__(self, filename):
         #creating data for building map using list
@@ -16,6 +17,7 @@ class Map:
         self.width = self.tilewidth * TILESIZE
 
 
+#Camera POV which is adjusetd based on player pose
 class Camera:
     
     def __init__(self, width, height):
@@ -41,6 +43,8 @@ class Camera:
         self.camera = pg.Rect(x, y, self.width, self.height)
 
 
+#This spritesheet class allows us to run through sprite animations with ease
+#Easy class to instantiate and run through each action
 class Spritesheet:
     def __init__(self, filename):
         self.spritesheet = pg.image.load(filename).convert()
