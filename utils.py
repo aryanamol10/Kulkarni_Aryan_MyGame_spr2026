@@ -98,18 +98,35 @@ class NarrativeBox:
         self.bg_color = (10, 10, 20, 200)
         self.hint_color = (180, 180, 180)
         self.font_size = 20
+        # Typewriter reveal state
+        self._char_index = 0
+        self._last_char_time = 0
+        self._char_delay = 25  # ms per character
 
     def show(self, pages):
         if isinstance(pages, str):
             pages = [pages]
         self.pages = pages
         self.page_index = 0
+        # reset typing state
+        self._char_index = 0
+        self._last_char_time = pg.time.get_ticks()
         self.active = True
 
     def next(self):
+        # If page still typing, skip to full page first
+        page = self.pages[self.page_index]
+        if self._char_index < len(page):
+            self._char_index = len(page)
+            return
+
         self.page_index += 1
         if self.page_index >= len(self.pages):
             self.close()
+            return
+        # reset typing for next page
+        self._char_index = 0
+        self._last_char_time = pg.time.get_ticks()
 
     def skip(self):
         self.close()
@@ -143,22 +160,52 @@ class NarrativeBox:
     def draw(self):
         if not self.active:
             return
+        # background panel with slight rounded corners and alpha
         surf = pg.Surface((self.width, self.height), pg.SRCALPHA)
-        surf.fill(self.bg_color)
+        panel = pg.Surface((self.width, self.height), pg.SRCALPHA)
+        panel.fill(self.bg_color)
+        surf.blit(panel, (0, 0))
 
         font = pg.font.Font(self.font_name, self.font_size)
         page = self.pages[self.page_index]
-        max_w = self.width - self.PADDING * 2
-        lines = self._wrap_text(page, font, max_w)
 
+        # advance typewriter index based on time
+        now = pg.time.get_ticks()
+        while self._char_index < len(page) and now - self._last_char_time >= self._char_delay:
+            self._char_index += 1
+            self._last_char_time += self._char_delay
+
+        display_text = page[:self._char_index]
+        max_w = self.width - self.PADDING * 2
+        lines = self._wrap_text(display_text, font, max_w)
+
+        # draw lines with simple outline + shadow for retro feel
         y = self.PADDING
         for line in lines:
+            # shadow
+            shadow = font.render(line, True, (10, 10, 10))
+            surf.blit(shadow, (self.PADDING + 2, y + 2))
+            # outline (4-way)
+            outline = font.render(line, True, (40, 40, 40))
+            surf.blit(outline, (self.PADDING - 1, y))
+            surf.blit(outline, (self.PADDING + 1, y))
+            # main text
             txt = font.render(line, True, self.text_color)
             surf.blit(txt, (self.PADDING, y))
             y += txt.get_height() + 4
 
+        # page indicators
+        if len(self.pages) > 1:
+            dot_font = pg.font.Font(self.font_name, 14)
+            dots = []
+            for i in range(len(self.pages)):
+                dots.append('●' if i == self.page_index else '○')
+            dots_s = dot_font.render(' '.join(dots), True, self.hint_color)
+            surf.blit(dots_s, ((self.width - dots_s.get_width()) // 2, self.height - dots_s.get_height() - 8))
+
+        # hint prompt
         hint_font = pg.font.Font(self.font_name, 16)
-        hint = "Click / Enter to continue"
+        hint = "Press [Space]"
         hint_s = hint_font.render(hint, True, self.hint_color)
         surf.blit(hint_s, (self.PADDING, self.height - hint_s.get_height() - 8))
 

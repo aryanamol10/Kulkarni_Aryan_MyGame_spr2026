@@ -158,7 +158,8 @@ class Player(ParentState):
         self.pos = vec(x, y) * TILESIZE
         self.acceleration = vec(0, 0)
         self.trace_bullet = []
-        self.shoot_cooldown = 20
+        # cooldown in frames; 0 means ready
+        self.shoot_cooldown = 0
         self.hit_rect = PLAYER_HIT_RECT
         self.direction_facing = ""
         self.walking = False
@@ -173,9 +174,23 @@ class Player(ParentState):
 
     def attack(self):
         """Player attack method"""
+        # single-shot with a short frame-based cooldown
         if self.shoot_cooldown <= 0:
             self.shoot()
-            self.shoot_cooldown = 20
+            self.shoot_cooldown = 15
+
+    def shoot(self):
+        """Spawn a bullet in the player's facing direction."""
+        # determine direction based on last horizontal facing; default right
+        dir_vec = vec(1, 0)
+        if self.direction_facing == 'left':
+            dir_vec = vec(-1, 0)
+        elif self.direction_facing == 'right':
+            dir_vec = vec(1, 0)
+
+        # spawn slightly in front of the player
+        spawn_pos = self.pos + dir_vec * (TILESIZE // 2)
+        Bullet(self.game, spawn_pos, dir_vec)
 
     def take_damage(self, damage):
         """Player takes damage from boss"""
@@ -201,7 +216,9 @@ class Player(ParentState):
 
     def update(self):
         pressed_keys = pg.key.get_pressed()
-        self.shoot_cooldown += 1
+        # cooldown counts down to zero
+        if self.shoot_cooldown > 0:
+            self.shoot_cooldown -= 1
 
         if pressed_keys[pg.K_LEFT] or pressed_keys[pg.K_a]:
             self.acceleration.x = -PLAYER_ACCEL
@@ -217,8 +234,7 @@ class Player(ParentState):
         if pressed_keys[pg.K_DOWN] or pressed_keys[pg.K_s]:
             self.acceleration.y = PLAYER_ACCEL
 
-        if pressed_keys[pg.K_SPACE]:
-            self.shoot_state = True
+        # Space is handled via KEYDOWN -> player.attack() in main.events
 
 
         self.change_dir(self.direction_facing)
@@ -255,31 +271,46 @@ class Player(ParentState):
 
 
 #Still work in progress but almost able to work
-def check_shooting_state(shoot_state, trace_bullet, game, rectx, recty):
+def check_shooting_state(shoot_state, trace_bullet, game, pos, direction):
+    """Helper to spawn a bullet if `shoot_state` is truthy.
+
+    Kept for compatibility with older code; creates a Bullet and
+    appends it to the provided trace list.
+    """
     if shoot_state:
-        trace_bullet.append(Bullet(game, rectx, recty))
-        game.all_bullets.add(trace_bullet[-1])
+        b = Bullet(game, pos, direction)
+        trace_bullet.append(b)
+        try:
+            game.all_bullets.add(b)
+        except Exception:
+            pass
 
 
 
     
 class Enemy(Sprite):
     def __init__(self, game, col, row, boss_type):
-        self.groups = game.all_sprites
+        # Add to both all_sprites and all_bosses groups
+        self.groups = game.all_sprites, game.all_bosses
         Sprite.__init__(self, self.groups)
         self.game = game
         self.image = pg.Surface((TILESIZE, TILESIZE))
         self.image.fill(RED)
         self.rect = self.image.get_rect()
         self.vel = vec(0, 0)
-        self.hit_rect = ENEMY_HIT_RECT
+
+        # position (col,row are tile coords)
+        self.pos = vec(col * TILESIZE, row * TILESIZE)
+        self.rect.center = (int(self.pos.x), int(self.pos.y))
+
+        # hit rect and physics
+        self.hit_rect = ENEMY_HIT_RECT.copy()
         self.hit_rect.center = self.pos
 
-
-        # Boss Difficulty Scaling
+        # Boss Difficulty Scaling (health) and movement speed (px/sec)
         stats = {'A': 50, 'B': 100, 'C': 150, 'D': 300}
         self.health = stats.get(boss_type, 50)
-        self.speed = 150
+        self.speed = 120
 
     def take_damage(self, damage):
         """Boss takes damage from player bullets"""
@@ -289,8 +320,9 @@ class Enemy(Sprite):
     def update(self):
         if hasattr(self.game, 'player'):
             self.seek(self.game.player.pos.x, self.game.player.pos.y)
-        
-        collide_with_walls(self, self.game.player, 'x')
+
+        # handle collisions with walls properly
+        collide_with_walls(self, self.game.all_walls, 'x')
         self.hit_rect.centery = self.pos.y
         collide_with_walls(self, self.game.all_walls, 'y')
         self.hit_rect.centerx = self.pos.x
@@ -301,8 +333,9 @@ class Enemy(Sprite):
         direction = target_pos - self.pos
         if direction.length() > 0:
             direction = direction.normalize()
-            self.pos += direction * self.speed
-            self.rect.center = self.pos
+            # movement scaled by delta-time
+            self.pos += direction * self.speed * getattr(self.game, 'dt', 1)
+            self.rect.center = (int(self.pos.x), int(self.pos.y))
             self.hit_rect.center = self.pos 
         
 
@@ -383,18 +416,30 @@ class Coin(Sprite):
 #Bullet class which can be iterated as we append through space trigger
 class Bullet(Sprite):
     def __init__(self, game, pos, direction):
+        # add to main sprite groups
         self.groups = game.all_sprites, game.all_bullets
         Sprite.__init__(self, self.groups)
-        self.image = pg.Surface((10, 10))
+        self.game = game
+        self.image = pg.Surface((8, 8))
         self.image.fill(YELLOW)
-        self.rect = self.image.get_rect(center=pos)
-        self.vel = direction * 500
+        self.rect = self.image.get_rect()
+        # position as vector for smooth movement
+        self.pos = vec(pos)
+        self.rect.center = (int(self.pos.x), int(self.pos.y))
+
+        # ensure direction is a Vector2 and normalized
+        direction = vec(direction)
+        if direction.length() != 0:
+            self.vel = direction.normalize() * 600
+        else:
+            self.vel = vec(1, 0) * 600
 
     def update(self):
+        # move according to delta-time from the game loop
         self.pos += self.vel * self.game.dt
-        self.rect.center = self.pos
-        # Kill if it leaves screen (simplified)
-        if not (0 < self.rect.x < WIDTH and 0 < self.rect.y < HEIGHT):
+        self.rect.center = (int(self.pos.x), int(self.pos.y))
+        # Kill if it leaves the visible area
+        if not (0 <= self.rect.x <= WIDTH and 0 <= self.rect.y <= HEIGHT):
             self.kill()
 
 #Blocks for bounds of map (useful and can be adjusted for custom animation)

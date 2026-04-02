@@ -31,6 +31,7 @@ class Game:
             'C': "Boss_3",
             'D': "Boss_4"
         }
+        self.score = 0
 
     def enter_boss_room(self, door_type):
         """Switch to the boss map associated with a door type and restart the level."""
@@ -56,6 +57,7 @@ class Game:
         self.all_walls   = pg.sprite.Group()
         self.all_doors   = pg.sprite.Group()
         self.all_bosses  = pg.sprite.Group()
+        self.all_coins   = pg.sprite.Group()
         self.all_bullets = pg.sprite.Group()
         
         # Load the current level map
@@ -74,9 +76,20 @@ class Game:
                 elif tile == 'P':
                     self.player = Player(self, col, row)
                     self.all_sprites.add(self.player)
+                elif tile == 'o':
+                    # spawn a coin (lowercase 'o')
+                    coin = Coin(self, col, row)
+                    self.all_sprites.add(coin)
+                    self.all_coins.add(coin)
+                elif tile == 'E':
+                    # spawn a generic enemy (map uses 'E' for enemy)
+                    Enemy(self, col, row, tile)
                 elif tile in ['A','B','C','D']:
-                    # Pass the tile character so the Door knows its type
-                    self.all_doors.add(Door(self, col, row, tile))
+                    # In boss maps, treat A-D as boss spawn points; otherwise create doors
+                    if self.current_level.lower().startswith('boss'):
+                        Enemy(self, col, row, tile)
+                    else:
+                        self.all_doors.add(Door(self, col, row, tile))
 
         # add floors first so they render beneath everything else
         self.all_sprites.add(self.all_floors)
@@ -96,15 +109,26 @@ class Game:
             boss_text += "\nPrepare yourself."
             self.narrative.show([boss_text])
 
+            # Ensure there's a boss in the map; spawn a default if none were placed
+            if len(self.all_bosses) == 0:
+                mid_col = max(1, self.map.tilewidth // 2)
+                mid_row = max(1, self.map.tileheight // 2)
+                try:
+                    num = int(self.current_level.split('_')[-1])
+                    boss_type = chr(ord('A') + max(0, min(3, num - 1)))
+                except Exception:
+                    boss_type = 'A'
+                Enemy(self, mid_col, mid_row, boss_type)
+
         self.run()
 
     def spawn_boss(self, boss_type, col, row):
         """Spawn appropriate boss based on type"""
         bosses = {
-            'A': lambda: Enemy(self, col * TILESIZE, row * TILESIZE, 'A'),
-            'B': lambda: Enemy(self, col * TILESIZE, row * TILESIZE, 'B'),
-            'C': lambda: Enemy(self, col * TILESIZE, row * TILESIZE, 'C'),
-            'D': lambda: Enemy(self, col * TILESIZE, row * TILESIZE, 'D')
+            'A': lambda: Enemy(self, col, row, 'A'),
+            'B': lambda: Enemy(self, col, row, 'B'),
+            'C': lambda: Enemy(self, col, row, 'C'),
+            'D': lambda: Enemy(self, col, row, 'D')
         }
         return bosses.get(boss_type, lambda: None)()
 
@@ -159,9 +183,20 @@ class Game:
                 if pg.sprite.spritecollide(self.player, pg.sprite.Group(boss), False):
                     self.player.take_damage(5)
                     print(f"Player hit! Health: {getattr(self.player, 'health', 100)}")
+
+        # Check coin pickups
+        if hasattr(self, 'player') and len(self.all_coins) > 0:
+            coins = pg.sprite.spritecollide(self.player, self.all_coins, True)
+            if coins:
+                self.score += len(coins)
+                print(f"Picked up {len(coins)} coin(s). Score: {self.score}")
         
+        # Destroy bullets that hit walls first
+        if len(self.all_bullets) > 0 and len(self.all_walls) > 0:
+            pg.sprite.groupcollide(self.all_bullets, self.all_walls, True, False)
+
         # Check bullets hitting bosses
-        for bullet in self.all_bullets:
+        for bullet in list(self.all_bullets):
             for boss in self.all_bosses:
                 if pg.sprite.spritecollide(bullet, pg.sprite.Group(boss), False):
                     bullet.kill()
@@ -186,6 +221,8 @@ class Game:
         if hasattr(self, 'player'):
             player_health = getattr(self.player, 'health', 100)
             self.draw_text(f"Health: {player_health}", 20, RED, 100, TILESIZE)
+            # Score display
+            self.draw_text(f"Score: {self.score}", 16, GREEN, 100, TILESIZE + 22)
         
         # Count remaining bosses
         boss_count = len(self.all_bosses)
@@ -217,6 +254,28 @@ class Game:
             pg.draw.line(self.screen, (40, 40, 50), (x, 0), (x, HEIGHT), 1)
         for y in range(0, HEIGHT, grid_size):
             pg.draw.line(self.screen, (40, 40, 50), (0, y), (WIDTH, y), 1)
+
+    def check_door_click(self, pos):
+        """Handle mouse clicks on doors.
+
+        Convert screen coordinates to world coordinates using the camera
+        offset and trigger entering the corresponding boss room.
+        """
+        if not hasattr(self, 'camera'):
+            world_x, world_y = pos
+        else:
+            cam = self.camera.camera
+            world_x = pos[0] - cam.left
+            world_y = pos[1] - cam.top
+
+        for door in self.all_doors:
+            if door.rect.collidepoint((world_x, world_y)):
+                # use existing mapping to switch level
+                try:
+                    self.enter_boss_room(door.door_type)
+                except Exception:
+                    pass
+                break
 
     # Fonts.. can be adjusted as needed
     def draw_text(self, text, size, color, x, y):
