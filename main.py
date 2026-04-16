@@ -328,7 +328,7 @@ class Game:
     def title_screen(self):
         """Display an opening title screen with a Start button."""
         title = TITLE
-        subtitle = "A Tiny Dungeon Adventure"
+        subtitle = "Open World Adventure"
         btn_text = "PLAY"
 
         clock = pg.time.Clock()

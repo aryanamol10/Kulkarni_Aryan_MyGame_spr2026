@@ -144,12 +144,47 @@ class CoinSpinState(State):
 
 
             
+class ShootingState(State):
+    def enter(self):
+        self.owner.current_frame = 0
+        self.owner.last_update = pg.time.get_ticks()
+        self.owner.shoot_anim_start = self.owner.last_update
+        self.owner.image = self.owner.shooting_frames[self.owner.current_frame]
+        self.owner.image.set_colorkey(BLACK)
+        if self.owner.direction_facing == 'left':
+            self.owner.image = pg.transform.flip(self.owner.image, True, False)
+        self.owner.rect = self.owner.image.get_rect(center=self.owner.rect.center)
+
+    def update(self):
+        now = pg.time.get_ticks()
+        if now - self.owner.last_update > 100:
+            self.owner.last_update = now
+            self.owner.current_frame = (self.owner.current_frame + 1) % len(self.owner.shooting_frames)
+            frame = self.owner.shooting_frames[self.owner.current_frame]
+            if self.owner.direction_facing == 'left':
+                frame = pg.transform.flip(frame, True, False)
+            bottom = self.owner.rect.bottom
+            self.owner.image = frame
+            self.owner.rect = self.owner.image.get_rect()
+            self.owner.rect.bottom = bottom
+
+        # short shoot state duration, then return to walk state
+        """
+        if now - self.owner.shoot_anim_start > 250:
+            if self.owner.direction_facing == "left":
+                self.owner.update_state(WalkingLeftState)
+            else:
+                self.owner.update_state(WalkingRightState)
+
+        """
+
 class Player(ParentState):
     def __init__(self, game, x, y):
         self.groups = game.all_sprites
         super().__init__(self.groups)
         self.game = game
         self.spritesheet = Spritesheet(path.join(self.game.img_dir, "Player_Sprite.png"))
+        self.spritesheet2 = Spritesheet(path.join(self.game.img_dir, "megaman_shoot_sheet.png"))
         self.load_images()
         self.image = pg.Surface((TILESIZE, TILESIZE))
         self.image = self.spritesheet.get_image(139.5, 132, TILESIZE, TILESIZE)
@@ -178,10 +213,10 @@ class Player(ParentState):
 
     def attack(self):
         """Player attack method"""
-        # single-shot with a short frame-based cooldown
         if self.shoot_cooldown <= 0:
             self.shoot()
             self.shoot_cooldown = 15
+            self.update_state(ShootingState)
 
     def shoot(self):
         """Spawn a bullet in the player's facing direction."""
@@ -208,24 +243,23 @@ class Player(ParentState):
         Bullet(self.game, spawn_pos, dir_vec)
 
     def take_damage(self, damage):
-        """Player takes damage from boss"""
         self.health -= damage
         if self.health < 0:
             self.health = 0
         print(f"Player health: {self.health}")
 
     def bounce_back(self):
-        """Player bounces back from collision"""
         self.vel *= -0.5
 
     #reverse direction basically (flip or transform the model)
     def change_dir(self, direction):
+        if isinstance(self.state, ShootingState):
+            return
         try:
             if direction == "right":
                 self.update_state(WalkingRightState)
-            if direction == "left":
-                self.update_state (WalkingLeftState)
-
+            elif direction == "left":
+                self.update_state(WalkingLeftState)
         except Exception:
             pass
 
@@ -281,7 +315,17 @@ class Player(ParentState):
                                self.spritesheet.get_image(WIDTH*7, 0, WIDTH, HEIGHT),
                                self.spritesheet.get_image(WIDTH*8, 0, WIDTH, HEIGHT),
                                self.spritesheet.get_image(WIDTH*9, 0, WIDTH, HEIGHT)]
-        for frame in self.standing_frames:
+        self.shooting_frames = [
+            self.spritesheet2.get_image(0, 0, WIDTH, HEIGHT),
+            self.spritesheet2.get_image(0, HEIGHT, WIDTH, HEIGHT),
+            self.spritesheet2.get_image(0, HEIGHT*2, WIDTH, HEIGHT),
+            self.spritesheet2.get_image(0, HEIGHT*3, WIDTH, HEIGHT),
+            self.spritesheet2.get_image(0, HEIGHT*4, WIDTH, HEIGHT),
+            self.spritesheet2.get_image(0, HEIGHT*5, WIDTH, HEIGHT),
+            self.spritesheet2.get_image(0, HEIGHT*6, WIDTH, HEIGHT),
+            self.spritesheet2.get_image(0, HEIGHT*7, WIDTH, HEIGHT),
+        ]
+        for frame in self.standing_frames + self.shooting_frames:
             frame.set_colorkey(BLACK)
 
 

@@ -3,7 +3,7 @@ import pygame as pg
 
 WIDTH = 800
 HEIGHT = 600
-TITLE = "The Door Opener"
+TITLE = "The Door-Danger"
 FPS = 60
 TILESIZE = 32
 
