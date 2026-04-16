@@ -1,6 +1,7 @@
 import pygame as pgfrom 
 from pygame.sprite import Sprite
 from sprites import *
+from sprites import collide_hit_rect
 
 
 #State machine logic: allows us to call ParentState and switch
