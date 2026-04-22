@@ -1,7 +1,7 @@
 import pygame as pg
 from pygame.sprite import Sprite
 from settings import *
-from state_machine import ParentState
+from state_machine import ParentState, ShootingState, WalkingRightState
 from utils import *
 from os import path
 from state_machine import *

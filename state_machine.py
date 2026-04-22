@@ -1,11 +1,17 @@
-import pygame as pgfrom 
+import pygame as pg 
 from pygame.sprite import Sprite
 from sprites import *
-from sprites import collide_hit_rect
 
 
 #State machine logic: allows us to call ParentState and switch
 #between other objects and classes like MovingState, OpenState, etc.
+
+def collide_hit_rect(one, two):
+    # Floors should not block movement — skip collision if either side is a floor
+    if getattr(one, 'is_floor', False) or getattr(two, 'is_floor', False):
+        return False
+    return one.hit_rect.colliderect(two.rect)
+
 class State():
     def __init__(self, owner):
         self.owner = owner
@@ -26,16 +32,15 @@ class WalkingRightState(State):
             self.owner.last_update = now
             
             
-            if self.owner.vel.length() > 0.1:
-                self.owner.current_frame = (self.owner.current_frame + 1) % len(self.owner.standing_frames)
-            else:
-                self.owner.current_frame = 0 
+            self.owner.current_frame = (self.owner.current_frame + 1) % len(self.owner.standing_frames)
 
             # Update the actual image
             bottom = self.owner.rect.bottom
             self.owner.image = self.owner.standing_frames[self.owner.current_frame]
             self.owner.rect = self.owner.image.get_rect()
             self.owner.rect.bottom = bottom
+
+        self.owner.update_state(IdleState)
 
 class WalkingLeftState(State):
     def update(self):
@@ -44,19 +49,26 @@ class WalkingLeftState(State):
         if now - self.owner.last_update > 50:
             self.owner.last_update = now
             
+            print("Walking left")
             
-            if self.owner.vel.length() > 0.1:
-                self.owner.current_frame = (self.owner.current_frame + 1) % len(self.owner.standing_frames)
-            else:
-                self.owner.current_frame = 0 
+            
+            self.owner.current_frame = (self.owner.current_frame + 1) % len(self.owner.standing_frames)
 
             # Update the actual image
             bottom = self.owner.rect.bottom
             self.owner.image = pg.transform.flip(self.owner.standing_frames[self.owner.current_frame], True, False)
             self.owner.rect = self.owner.image.get_rect()
             self.owner.rect.bottom = bottom
-        
 
+        self.owner.update_state(IdleState)
+        
+class IdleState(State):
+    def update(self):   
+        # Update the actual image
+        bottom = self.owner.rect.bottom
+        self.owner.image = self.owner.spritesheet.get_image(139.5, 132, TILESIZE, TILESIZE)
+        self.owner.rect = self.owner.image.get_rect()
+        self.owner.rect.bottom = bottom
 
 class ParentState(Sprite):
     def __init__(self, groups):
