@@ -2,9 +2,41 @@ import pygame as pg
 from pygame.sprite import Sprite
 from sprites import *
 
-
 #State machine logic: allows us to call ParentState and switch
 #between other objects and classes like MovingState, OpenState, etc.
+
+def shoot_bullet(self):
+    now = pg.time.get_ticks()
+    if now - self.owner.last_update > 50:
+        self.owner.last_update = now
+        self.owner.current_frame = (self.owner.current_frame + 1) % len(self.owner.shooting_frames)
+        frame = self.owner.shooting_frames[self.owner.current_frame]
+        if self.owner.direction_facing == 'left':
+            frame = pg.transform.flip(frame, True, False)
+        bottom = self.owner.rect.bottom
+        self.owner.image = frame
+        self.owner.rect = self.owner.image.get_rect()
+        self.owner.rect.bottom = bottom
+
+MVE_LIST = {
+    "Shoot": {
+        "logic":shoot_bullet(),
+        "total frames":7
+    },
+}
+
+class Character:
+    def __init__(self, game):
+        self.game = game
+        self.last_update = 0
+        self.current_frame = 0
+    def use_state(self, index_num):
+        if index_num < len(MVE_LIST):
+            mve_start = MVE_LIST[index_num]
+            print("Currently at "+mve_start+" state")
+
+    
+
 
 def collide_hit_rect(one, two):
     # Floors should not block movement — skip collision if either side is a floor
