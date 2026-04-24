@@ -40,7 +40,6 @@ class WalkingRightState(State):
             self.owner.rect = self.owner.image.get_rect()
             self.owner.rect.bottom = bottom
 
-        self.owner.update_state(IdleState)
 
 class WalkingLeftState(State):
     def update(self):
@@ -60,7 +59,6 @@ class WalkingLeftState(State):
             self.owner.rect = self.owner.image.get_rect()
             self.owner.rect.bottom = bottom
 
-        self.owner.update_state(IdleState)
         
 class IdleState(State):
     def update(self):   
@@ -125,19 +123,10 @@ class CoinSpinState(State):
 
             
 class ShootingState(State):
-    def enter(self):
-        self.owner.current_frame = 0
-        self.owner.last_update = pg.time.get_ticks()
-        self.owner.shoot_anim_start = self.owner.last_update
-        self.owner.image = self.owner.shooting_frames[self.owner.current_frame]
-        self.owner.image.set_colorkey(BLACK)
-        if self.owner.direction_facing == 'left':
-            self.owner.image = pg.transform.flip(self.owner.image, True, False)
-        self.owner.rect = self.owner.image.get_rect(center=self.owner.rect.center)
 
     def update(self):
         now = pg.time.get_ticks()
-        if now - self.owner.last_update > 100:
+        if now - self.owner.last_update > 50:
             self.owner.last_update = now
             self.owner.current_frame = (self.owner.current_frame + 1) % len(self.owner.shooting_frames)
             frame = self.owner.shooting_frames[self.owner.current_frame]
@@ -147,13 +136,3 @@ class ShootingState(State):
             self.owner.image = frame
             self.owner.rect = self.owner.image.get_rect()
             self.owner.rect.bottom = bottom
-
-        # short shoot state duration, then return to walk state
-        """
-        if now - self.owner.shoot_anim_start > 250:
-            if self.owner.direction_facing == "left":
-                self.owner.update_state(WalkingLeftState)
-            else:
-                self.owner.update_state(WalkingRightState)
-
-        """
