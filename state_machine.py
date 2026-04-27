@@ -17,13 +17,14 @@ def shoot_bullet(self):
         self.owner.image = frame
         self.owner.rect = self.owner.image.get_rect()
         self.owner.rect.bottom = bottom
-
+"""
 MVE_LIST = {
     "Shoot": {
         "logic":shoot_bullet(),
         "total frames":7
     },
 }
+"""
 
 class Character:
     def __init__(self, game):

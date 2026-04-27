@@ -3,6 +3,15 @@
 '''
 Main file responsible for game loop including input, update, and draw methods.
 Door-based level progression system with boss fights.
+
+
+Elements of this game were used with the help of Gemini for assistance 
+and efficiency in terms of logic. This is limited to these specific components ONLY:
+    - Title Screen
+    - Mob Design
+    - Map Layout
+
+All other components were hand-written and implemented by myself
 '''
 
 import pygame as pg
