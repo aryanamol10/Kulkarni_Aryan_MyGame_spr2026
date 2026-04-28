@@ -21,6 +21,7 @@ from settings import *
 from sprites import *
 from utils import *
 import random as rand
+from state_machine import *
 
 class Game:
     def __init__(self):

@@ -1,7 +1,7 @@
 import pygame as pg
 from pygame.sprite import Sprite
 from settings import *
-from state_machine import ParentState, ShootingState, WalkingLeftState, WalkingRightState
+from state_machine import FRAME_DATA, ParentState, ShootingState, WalkingLeftState, WalkingRightState
 from utils import *
 from os import path
 from state_machine import *
@@ -44,6 +44,7 @@ class Player(ParentState):
         self.groups = game.all_sprites
         super().__init__(self.groups)
         self.game = game
+        self.direction_facing = "right"
         self.spritesheet = Spritesheet(path.join(self.game.img_dir, "Player_Sprite.png"))
         self.spritesheet2 = Spritesheet(path.join(self.game.img_dir, "megaman_shoot_sheet.png"))
         self.load_images()
@@ -68,8 +69,15 @@ class Player(ParentState):
         self.health = 100
         self.shooting_state = False
 
+        FRAME_DATA["walk_right"]["frames"] = self.standing_frames
+        FRAME_DATA["walk_left"]["frames"]  = self.standing_frames  # flipped in state
+        FRAME_DATA["shoot"]["frames"]      = self.shooting_frames
 
-        self.update_state(WalkingRightState)
+        self.image = self.spritesheet.get_image(0, 0, WIDTH, HEIGHT)
+        self.rect = self.image.get_rect()
+        self.rect.topleft = (x, y)
+        self.hit_rect = self.rect.copy()
+        self.update_state("idle")
 
 
     def attack(self):
@@ -124,7 +132,8 @@ class Player(ParentState):
         except Exception:
             pass
 
-    def update(self):
+    def handle_input(self):
+
         pressed_keys = pg.key.get_pressed()
         # cooldown counts down to zero
         if self.shoot_cooldown > 0:
@@ -133,23 +142,30 @@ class Player(ParentState):
         if pressed_keys[pg.K_LEFT] or pressed_keys[pg.K_a]:
             self.acceleration.x = -PLAYER_ACCEL
             self.direction_facing = "left"
+            self.update_state("walk_left")
 
         if pressed_keys[pg.K_RIGHT] or pressed_keys[pg.K_d]:
             self.acceleration.x = PLAYER_ACCEL
             self.direction_facing = "right"
+            self.update_state("walk_right")
 
         if pressed_keys[pg.K_UP] or pressed_keys[pg.K_w]:
             self.acceleration.y = -PLAYER_ACCEL
 
         if pressed_keys[pg.K_DOWN] or pressed_keys[pg.K_s]:
             self.acceleration.y = PLAYER_ACCEL
+            self.update_state("shoot")
+
+        self.change_dir(self.direction_facing)
+
+
+    def update(self):
+
+        self.handle_input()
+        super().update()
 
         # Space is handled via KEYDOWN -> player.attack() in main.events
 
-
-        self.change_dir(self.direction_facing)
-        #self.state_check()
-        super().update()
 
         self.acceleration += self.vel * PLAYER_FRICTION
         self.vel += self.acceleration
@@ -162,6 +178,7 @@ class Player(ParentState):
         self.hit_rect.centery = self.pos.y
         collide_with_walls(self, self.game.all_walls, 'y')
         self.hit_rect.centerx = self.pos.x
+
 
     def load_images(self):
         WIDTH = TILESIZE
@@ -188,6 +205,9 @@ class Player(ParentState):
         ]
         for frame in self.standing_frames + self.shooting_frames:
             frame.set_colorkey(BLACK)
+
+
+
 
 
 #Still work in progress but almost able to work
@@ -436,7 +456,9 @@ class Door(ParentState):
         # record the door's type so the game can map it to a boss level
         self.door_type = door_type
 
-        self.update_state(DoorClosedState)
+        FRAME_DATA["door_closed"]["frames"] = self.standing_frames
+
+        self.update_state("door_closed")
         
 
     def load_images(self):
@@ -458,7 +480,7 @@ class Door(ParentState):
 class Coin(Sprite):
     def __init__(self, game, x, y):
         self.groups = game.all_sprites
-        Sprite.__init__(self, self.groups)
+        super().__init__(self.groups)
         self.game = game
         self.spritesheet = Spritesheet(path.join(self.game.img_dir, "coin_sprite_sheet.png"))
         self.image = pg.Surface((TILESIZE, TILESIZE))
@@ -471,6 +493,13 @@ class Coin(Sprite):
         self.last_update = 0
         self.current_frame = 0
 
+        FRAME_DATA["coin_spin"]["frames"] = self.standing_frames
+
+        self.image = self.standing_frames[0]
+        self.rect  = self.image.get_rect()
+        self.rect.topleft = (x, y)
+        self.update_state("coin_spin")
+
     def load_images(self):
         self.standing_frames = [self.spritesheet.get_image(0, 0, TILESIZE, TILESIZE), 
                                 self.spritesheet.get_image(TILESIZE, 0, TILESIZE, TILESIZE)]
@@ -478,19 +507,6 @@ class Coin(Sprite):
                                 self.spritesheet.get_image(TILESIZE*3, 0, TILESIZE, TILESIZE)]
         for frame in self.standing_frames:
             frame.set_colorkey(BLACK)
-
-    def animate(self):
-        now = pg.time.get_ticks()
-        if now - self.last_update > 350:
-                self.last_update = now
-                self.current_frame = (self.current_frame + 1) % len(self.standing_frames)
-                bottom = self.rect.bottom
-                self.image = self.standing_frames[self.current_frame]
-                self.rect = self.image.get_rect()
-                self.rect.bottom = bottom
-
-    def update(self):
-        self.animate()
 
 #Bullet class which can be iterated as we append through space trigger
 class Bullet(Sprite):
