@@ -12,20 +12,18 @@ from main import *
 # how many frames, and the delay between them.
 # Add new attacks/animations here — no new class required.
 
-class Animations():
-    def __init__(self, game):
-        self.game = game
-    def idle_player_animations(self):
 
-        self.idle_spritesheet = Spritesheet(path.join(self.game.img_dir, "door_animation.png"))
-        
-        self.idle_frames = self.idle_spritesheet.get_image(0, 0, WIDTH, HEIGHT)
+def idle_player_animations():
 
-        return self.idle_frames
+    game_directory = path.dirname(__file__)
+    img_directory = path.join(game_directory, 'images')
+    idle_spritesheet = Spritesheet(path.join(img_directory, "door_animation.png"))
+    idle_frames = idle_spritesheet.get_image(0, 0, WIDTH, HEIGHT)
+    return idle_frames
 
 
 FRAME_DATA = {
-    "idle":        {"frames": Animations.idle_player_animations(Game), "delay": 0},
+    "idle":        {"frames": idle_player_animations(), "delay": 0},
     "walk_right":  {"frames": None, "delay": 50},
     "walk_left":   {"frames": None, "delay": 50},
     "shoot":       {"frames": None, "delay": 50},
