@@ -55,6 +55,15 @@ class Spritesheet:
         image = new_image
         return image
 
+class SpritesheetAnimations:
+    def __init__(self, filename):
+        self.filename = filename
+        self.spritesheet = None
+    def load(self):
+        self.spritesheet = pg.image.load(self.filename).convert()
+
+
+
 # this class creates a countdown timer for a cooldown
 class Cooldown:
     def __init__(self, time):

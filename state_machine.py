@@ -13,17 +13,9 @@ from main import *
 # Add new attacks/animations here — no new class required.
 
 
-def idle_player_animations():
-
-    game_directory = path.dirname(__file__)
-    img_directory = path.join(game_directory, 'images')
-    idle_spritesheet = Spritesheet(path.join(img_directory, "door_animation.png"))
-    idle_frames = idle_spritesheet.get_image(0, 0, WIDTH, HEIGHT)
-    return idle_frames
-
 
 FRAME_DATA = {
-    "idle":        {"frames": idle_player_animations(), "delay": 0},
+    "idle":        {"frames": None, "delay": 0},
     "walk_right":  {"frames": None, "delay": 50},
     "walk_left":   {"frames": None, "delay": 50},
     "shoot":       {"frames": None, "delay": 50},
