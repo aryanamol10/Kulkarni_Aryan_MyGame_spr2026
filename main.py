@@ -149,38 +149,44 @@ class Game:
                     self.player.attack()
 
     def update(self):
+        # Update all sprites at once (more efficient than individual updates)
         self.all_sprites.update()
 
-        if hasattr(self, 'player'):
-            for wall in self.all_walls:
-                if pg.sprite.spritecollide(self.player, pg.sprite.Group(wall), False):
-                    self.player.bounce_back()
+        # Only check collisions if player exists
+        if hasattr(self, 'player') and self.player.health > 0:
+            # Use group collision methods instead of individual loops (much faster)
+            # Player vs Bosses collision
+            boss_hits = pg.sprite.spritecollide(self.player, self.all_bosses, False, collided=collide_hit_rect)
+            if boss_hits:
+                self.player.take_damage(5)
+                # Only print occasionally to avoid spam
+                if pg.time.get_ticks() % 1000 < 50:  # Print roughly once per second
+                    print(f"Player hit! Health: {self.player.health}")
 
-        for boss in self.all_bosses:
-            if hasattr(self, 'player'):
-                if pg.sprite.spritecollide(self.player, pg.sprite.Group(boss), False):
-                    self.player.take_damage(5)
-                    print(f"Player hit! Health: {getattr(self.player, 'health', 100)}")
+            # Player vs Coins collision
+            coins_collected = pg.sprite.spritecollide(self.player, self.all_coins, True, collided=collide_hit_rect)
+            if coins_collected:
+                self.score += len(coins_collected)
+                if pg.time.get_ticks() % 1000 < 50:  # Print roughly once per second
+                    print(f"Picked up {len(coins_collected)} coin(s). Score: {self.score}")
 
-        if hasattr(self, 'player') and len(self.all_coins) > 0:
-            coins = pg.sprite.spritecollide(self.player, self.all_coins, True)
-            if coins:
-                self.score += len(coins)
-                print(f"Picked up {len(coins)} coin(s). Score: {self.score}")
+        # Bullet vs Wall collisions (group vs group is efficient)
+        if self.all_bullets and self.all_walls:
+            pg.sprite.groupcollide(self.all_bullets, self.all_walls, True, False, collided=collide_hit_rect)
 
-        if len(self.all_bullets) > 0 and len(self.all_walls) > 0:
-            pg.sprite.groupcollide(self.all_bullets, self.all_walls, True, False)
+        # Bullet vs Boss collisions (optimized)
+        if self.all_bullets and self.all_bosses:
+            bullet_boss_hits = pg.sprite.groupcollide(self.all_bullets, self.all_bosses, True, False, collided=collide_hit_rect)
+            for boss in bullet_boss_hits.values():
+                for b in boss:  # Each boss might be hit by multiple bullets
+                    if hasattr(b, 'take_damage'):
+                        b.take_damage(10)
+                        if pg.time.get_ticks() % 1000 < 50:  # Print roughly once per second
+                            print(f"Boss hit! Health: {getattr(b, 'health', 0)}")
+                        if hasattr(b, 'health') and b.health <= 0:
+                            b.kill()
 
-        for bullet in list(self.all_bullets):
-            for boss in self.all_bosses:
-                if pg.sprite.spritecollide(bullet, pg.sprite.Group(boss), False):
-                    bullet.kill()
-                    if hasattr(boss, 'take_damage'):
-                        boss.take_damage(10)
-                        print(f"Boss hit! Health: {getattr(boss, 'health', 0)}")
-                    if hasattr(boss, 'health') and boss.health <= 0:
-                        boss.kill()
-
+        # Update camera
         if hasattr(self, 'camera') and hasattr(self, 'player'):
             self.camera.update(self.player)
 
@@ -191,31 +197,32 @@ class Game:
         self.draw_text("Click doors to enter boss room | ESC to return | SPACE to attack", 14, YELLOW, WIDTH/2, TILESIZE + 30)
 
         if hasattr(self, 'player'):
-            self.draw_text(f"Health: {100}", 20, RED,   100, TILESIZE)
-            self.draw_text(f"Score: {self.score}",          16, GREEN, 100, TILESIZE + 22)
+            self.draw_health_bar()
+            self.draw_text(f"Score: {self.score}", 16, GREEN, 100, TILESIZE + 22)
 
         self.draw_text(f"Bosses: {len(self.all_bosses)}", 20, YELLOW, WIDTH - 150, TILESIZE)
 
+        # Optimized drawing - single pass through sprites
         if hasattr(self, 'camera'):
+            # Draw floors first
             for floor in self.all_floors:
                 self.screen.blit(floor.image, self.camera.apply(floor))
+
+            # Draw all non-floor sprites (excluding bullets which are drawn separately)
             for sprite in self.all_sprites:
-                if getattr(sprite, 'is_floor', False):
-                    continue
-                if sprite in self.all_bullets:
-                    continue
-                self.screen.blit(sprite.image, self.camera.apply(sprite))
+                if not getattr(sprite, 'is_floor', False) and sprite not in self.all_bullets:
+                    self.screen.blit(sprite.image, self.camera.apply(sprite))
+
+            # Draw bullets last (so they appear on top)
             for bullet in self.all_bullets:
                 self.screen.blit(bullet.image, self.camera.apply(bullet))
         else:
+            # Fallback for no camera
             for floor in self.all_floors:
                 self.screen.blit(floor.image, floor.rect)
             for sprite in self.all_sprites:
-                if getattr(sprite, 'is_floor', False):
-                    continue
-                if sprite in self.all_bullets:
-                    continue
-                self.screen.blit(sprite.image, sprite.rect)
+                if not getattr(sprite, 'is_floor', False) and sprite not in self.all_bullets:
+                    self.screen.blit(sprite.image, sprite.rect)
             for bullet in self.all_bullets:
                 self.screen.blit(bullet.image, bullet.rect)
 
@@ -254,6 +261,42 @@ class Game:
         text_rect    = text_surface.get_rect()
         text_rect.midtop = (x, y)
         self.screen.blit(text_surface, text_rect)
+
+    def draw_health_bar(self):
+        if not hasattr(self, 'player'):
+            return
+
+        health = self.player.health
+        max_health = 100  # Assuming max health is 100
+        health_ratio = health / max_health
+
+        # Health bar dimensions
+        bar_width = 200
+        bar_height = 20
+        bar_x = 50
+        bar_y = TILESIZE - 5
+
+        # Background (gray)
+        pg.draw.rect(self.screen, (100, 100, 100), (bar_x, bar_y, bar_width, bar_height))
+
+        # Health fill color based on health percentage
+        if health_ratio > 0.7:
+            fill_color = GREEN
+        elif health_ratio > 0.3:
+            fill_color = YELLOW
+        else:
+            fill_color = RED
+
+        # Fill the bar
+        fill_width = int(bar_width * health_ratio)
+        pg.draw.rect(self.screen, fill_color, (bar_x, bar_y, fill_width, bar_height))
+
+        # Border
+        pg.draw.rect(self.screen, WHITE, (bar_x, bar_y, bar_width, bar_height), 2)
+
+        # Health text
+        health_text = f"{health}/{max_health}"
+        self.draw_text(health_text, 16, WHITE, bar_x + bar_width // 2, bar_y - 25)
 
     def title_screen(self):
         title    = TITLE
