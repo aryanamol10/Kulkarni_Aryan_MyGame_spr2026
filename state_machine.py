@@ -1,10 +1,6 @@
 import pygame as pg
 from pygame.sprite import Sprite
-from sprites import *
-from settings import *
-from utils import *
-from os import path
-from main import *
+from settings import TILESIZE
 
 
 # ─── Frame data ───────────────────────────────────────────────────────────────
@@ -48,9 +44,9 @@ class State:
     def update(self): pass
     def exit(self):
         try:
-            if self.owner.direcion == "right":
+            if getattr(self.owner, 'direction_facing', None) == "right":
                 self.owner.update_state("walk_right")
-            elif self.owner.direction == "left":
+            elif getattr(self.owner, 'direction_facing', None) == "left":
                 self.owner.update_state("walk_left")
         except Exception:
             pass
@@ -86,11 +82,19 @@ class WalkingLeftState(State):
 
 class IdleState(State):
     key = "idle"
+    def enter(self):
+        self.owner.current_frame = 0
+        self.owner.last_update = pg.time.get_ticks()
+        if hasattr(self.owner, 'standing_frames') and self.owner.standing_frames:
+            self.owner.image = self.owner.standing_frames[0]
+            self.owner.rect = self.owner.image.get_rect()
+
     def update(self):
-        bottom           = self.owner.rect.bottom
-        self.owner.image = self.owner.spritesheet.get_image(139.5, 132, TILESIZE, TILESIZE)
-        self.owner.rect  = self.owner.image.get_rect()
-        self.owner.rect.bottom = bottom
+        if hasattr(self.owner, 'standing_frames') and self.owner.standing_frames:
+            bottom = self.owner.rect.bottom
+            self.owner.image = self.owner.standing_frames[0]
+            self.owner.rect = self.owner.image.get_rect()
+            self.owner.rect.bottom = bottom
 
 
 class ShootingState(State):
@@ -109,27 +113,30 @@ class CoinSpinState(State):
 class DoorClosedState(State):
     key = "door_closed"
     def enter(self):
-        self.owner.image = self.owner.door_states[0]
+        self.owner.current_frame = 0
+        self.owner.last_update = pg.time.get_ticks()
+        if self.frames:
+            self.owner.image = self.frames[0]
+            self.owner.rect = self.owner.image.get_rect()
+
     def update(self):
-        if collide_hit_rect(self.owner.game.player, self.owner):
+        self._advance_frame(self.frames or getattr(self.owner, 'door_closed_frames', [self.owner.image]))
+        if hasattr(self.owner.game, 'player') and collide_hit_rect(self.owner.game.player, self.owner):
             self.owner.update_state("door_open")
 
 
 class DoorOpenState(State):
     key = "door_open"
     def enter(self):
-        self.owner.image = self.owner.door_states[1]
-        try:
-            match self.owner.door_type:
-                case "A": self.owner.game.current_level = "Boss_1"
-                case "B": self.owner.game.current_level = "Boss_2"
-                case "C": self.owner.game.current_level = "Boss_3"
-                case "D": self.owner.game.current_level = "Boss_4"
-            self.owner.game.new()
-        except Exception:
-            pass
+        self.owner.current_frame = 0
+        self.owner.last_update = pg.time.get_ticks()
+        if self.frames:
+            self.owner.image = self.frames[0]
+            self.owner.rect = self.owner.image.get_rect()
+
     def update(self):
-        if not collide_hit_rect(self.owner.game.player, self.owner):
+        self._advance_frame(self.frames or getattr(self.owner, 'door_open_frames', [self.owner.image]))
+        if not hasattr(self.owner.game, 'player') or not collide_hit_rect(self.owner.game.player, self.owner):
             self.owner.update_state("door_closed")
 
 
@@ -185,89 +192,3 @@ class ParentState(Sprite):
 #   4. update_state("idle")         — machine starts running
 #
 # After that, call update_state("walk_right") from input / collision / AI.
-
-class Player(ParentState):
-    def __init__(self, game, x, y, groups):
-        super().__init__(groups)                   # step 1
-        self.game             = game
-        self.direction_facing = "right"
-
-        # step 2 — build frame lists from your spritesheet as normal
-        self.spritesheet     = Spritesheet(path.join(self.game.img_dir, "Player_Sprite.png"))
-        self.standing_frames = [
-            self.spritesheet.get_image(0,  0, TILESIZE, TILESIZE),
-            self.spritesheet.get_image(48, 0, TILESIZE, TILESIZE),
-            # … rest of walk strip
-        ]
-        self.shooting_frames = [
-            self.spritesheet.get_image(0,  48, TILESIZE, TILESIZE),
-            self.spritesheet.get_image(48, 48, TILESIZE, TILESIZE),
-            # … rest of shoot strip
-        ]
-
-        # step 3 — hand the frames to FRAME_DATA so states can read them
-        FRAME_DATA["walk_right"]["frames"] = self.standing_frames
-        FRAME_DATA["walk_left"]["frames"]  = self.standing_frames  # flipped in state
-        FRAME_DATA["shoot"]["frames"]      = self.shooting_frames
-
-        # step 4 — start the machine
-        self.image    = self.standing_frames[0]
-        self.rect     = self.image.get_rect()
-        self.rect.topleft = (x, y)
-        self.hit_rect = self.rect.copy()
-        self.update_state("idle")
-
-    def handle_input(self):
-        keys = pg.key.get_pressed()
-        if keys[pg.K_RIGHT]:
-            self.direction_facing = "right"
-            self.update_state("walk_right")    # string key — no class needed
-        elif keys[pg.K_LEFT]:
-            self.direction_facing = "left"
-            self.update_state("walk_left")
-        elif keys[pg.K_SPACE]:
-            self.update_state("shoot")
-        else:
-            self.update_state("idle")
-
-    def update(self):
-        self.handle_input()
-        super().update()                       # delegates to self.state.update()
-
-
-class Coin(ParentState):
-    def __init__(self, game, x, y, groups):
-        super().__init__(groups)
-        self.game = game
-
-        self.spritesheet     = Spritesheet(path.join(self.game.img_dir, "coin_sprite_sheet.png"))
-        self.standing_frames = [
-            self.spritesheet.get_image(0,  0, TILESIZE, TILESIZE),
-            self.spritesheet.get_image(16, 0, TILESIZE, TILESIZE),
-            self.spritesheet.get_image(32, 0, TILESIZE, TILESIZE),
-            self.spritesheet.get_image(48, 0, TILESIZE, TILESIZE),
-        ]
-        FRAME_DATA["coin_spin"]["frames"] = self.standing_frames
-
-        self.image = self.standing_frames[0]
-        self.rect  = self.image.get_rect()
-        self.rect.topleft = (x, y)
-        self.update_state("coin_spin")         # coins spin from the start
-
-
-class Door(ParentState):
-    def __init__(self, game, x, y, door_type, groups):
-        super().__init__(groups)
-        self.game      = game
-        self.door_type = door_type
-
-        sheet            = Spritesheet(path.join(self.game.img_dir, "door_animation.png"))
-        self.door_states = [
-            sheet.get_image(0,  0, TILESIZE, TILESIZE * 2),   # [0] = closed
-            sheet.get_image(16, 0, TILESIZE, TILESIZE * 2),   # [1] = open
-        ]
-        self.image    = self.door_states[0]
-        self.rect     = self.image.get_rect()
-        self.rect.topleft = (x, y)
-        self.hit_rect = self.rect.copy()
-        self.update_state("door_closed")       # doors always start closed

@@ -37,8 +37,8 @@ def collide_with_walls(sprite, group, dir):
 
 
 class Player(ParentState):
-    def __init__(self, game, x, y):
-        self.groups = game.all_sprites
+    def __init__(self, game, x, y, groups=None):
+        self.groups = groups if groups is not None else game.all_sprites
         super().__init__(self.groups)
         self.game = game
         self.spritesheet = Spritesheet(path.join(self.game.img_dir, "Player_Sprite.png"))
@@ -139,21 +139,29 @@ class Player(ParentState):
         if self.shoot_cooldown > 0:
             self.shoot_cooldown -= 1
 
+        moving = False
+        self.acceleration.x = 0
+        self.acceleration.y = 0
+
         if pressed_keys[pg.K_LEFT] or pressed_keys[pg.K_a]:
             self.acceleration.x = -PLAYER_ACCEL
             self.direction_facing = "left"
             self.update_state("walk_left")
+            moving = True
         elif pressed_keys[pg.K_RIGHT] or pressed_keys[pg.K_d]:
             self.acceleration.x = PLAYER_ACCEL
             self.direction_facing = "right"
             self.update_state("walk_right")
-        elif pressed_keys[pg.K_UP] or pressed_keys[pg.K_w]:
+            moving = True
+
+        if pressed_keys[pg.K_UP] or pressed_keys[pg.K_w]:
             self.acceleration.y = -PLAYER_ACCEL
-            self.update_state("idle")
-        elif pressed_keys[pg.K_DOWN] or pressed_keys[pg.K_s]:
+            moving = True
+        if pressed_keys[pg.K_DOWN] or pressed_keys[pg.K_s]:
             self.acceleration.y = PLAYER_ACCEL
-            self.update_state("idle")
-        else:
+            moving = True
+
+        if not moving:
             self.update_state("idle")
 
     def update(self):
@@ -355,32 +363,34 @@ class Trap(Sprite):
 
 
 class Door(ParentState):
-    def __init__(self, game, x, y, door_type=None):
-        self.groups = game.all_sprites
+    def __init__(self, game, x, y, door_type=None, groups=None):
+        self.groups = groups if groups is not None else game.all_sprites
         super().__init__(self.groups)
         self.game      = game
         self.door_type = door_type
         self.spritesheet = Spritesheet(path.join(self.game.img_dir, "door_animation.png"))
         self.load_images()
 
-        self.image = self.standing_frames[0]
+        self.image = self.door_closed_frames[0]
         self.rect  = self.image.get_rect()
         self.pos   = vec(x * TILESIZE, y * TILESIZE)
         self.rect.topleft = self.pos
         self.open_door = False
         self.hit_rect  = self.rect.copy()
 
-        FRAME_DATA["door_closed"]["frames"] = self.standing_frames
-        FRAME_DATA["door_open"]["frames"]   = self.standing_frames
+        FRAME_DATA["door_closed"]["frames"] = self.door_closed_frames
+        FRAME_DATA["door_open"]["frames"]   = self.door_open_frames
 
         self.update_state("door_closed")
 
     def load_images(self):
-        self.standing_frames = [
-            self.spritesheet.get_image(0,          0, TILESIZE // 2, TILESIZE),
-            self.spritesheet.get_image(TILESIZE//2, 0, TILESIZE // 2, TILESIZE),
+        self.door_closed_frames = [
+            self.spritesheet.get_image(0, 0, TILESIZE, TILESIZE * 2),
         ]
-        for frame in self.standing_frames:
+        self.door_open_frames = [
+            self.spritesheet.get_image(TILESIZE, 0, TILESIZE, TILESIZE * 2),
+        ]
+        for frame in self.door_closed_frames + self.door_open_frames:
             frame.set_colorkey(BLACK)
 
     def update(self):
@@ -392,8 +402,8 @@ class Door(ParentState):
 
 
 class Coin(ParentState):
-    def __init__(self, game, x, y):
-        self.groups = game.all_sprites
+    def __init__(self, game, x, y, groups=None):
+        self.groups = groups if groups is not None else game.all_sprites
         super().__init__(self.groups)
         self.game = game
         self.spritesheet = Spritesheet(path.join(self.game.img_dir, "coin_sprite_sheet.png"))

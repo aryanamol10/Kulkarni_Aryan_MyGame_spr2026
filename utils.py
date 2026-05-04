@@ -47,12 +47,10 @@ class Camera:
 #Easy class to instantiate and run through each action
 class Spritesheet:
     def __init__(self, filename):
-        self.spritesheet = pg.image.load(filename).convert()
+        self.spritesheet = pg.image.load(filename).convert_alpha()
     def get_image(self, x, y, width, height):
-        image = pg.Surface((width, height))
+        image = pg.Surface((width, height), pg.SRCALPHA)
         image.blit(self.spritesheet, (0,0), (x,y, width, height))
-        new_image = pg.transform.scale(image ,(width, height))
-        image = new_image
         return image
 
 class SpritesheetAnimations:
@@ -60,7 +58,7 @@ class SpritesheetAnimations:
         self.filename = filename
         self.spritesheet = None
     def load(self):
-        self.spritesheet = pg.image.load(self.filename).convert()
+        self.spritesheet = pg.image.load(self.filename).convert_alpha()
 
 
 
