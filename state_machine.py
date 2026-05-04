@@ -18,6 +18,8 @@ FRAME_DATA = {
     "coin_spin":   {"frames": None, "delay": 350},
     "door_open":   {"frames": None, "delay": 0},
     "door_closed": {"frames": None, "delay": 0},
+    "door_opening": {"frames": None, "delay": 100},
+    "door_closing": {"frames": None, "delay": 100},
 }
 
 
@@ -115,14 +117,81 @@ class DoorClosedState(State):
     def enter(self):
         self.owner.current_frame = 0
         self.owner.last_update = pg.time.get_ticks()
-        if self.frames:
-            self.owner.image = self.frames[0]
-            self.owner.rect = self.owner.image.get_rect()
+        self.owner.image = self.owner.door_closed_frames[0]
+        self.owner.rect = self.owner.image.get_rect()
+        self.owner.transitioned = False
 
     def update(self):
-        self._advance_frame(self.frames or getattr(self.owner, 'door_closed_frames', [self.owner.image]))
         if hasattr(self.owner.game, 'player') and collide_hit_rect(self.owner.game.player, self.owner):
-            self.owner.update_state("door_open")
+            self.owner.update_state("door_opening")
+
+
+class DoorOpeningState(State):
+    key = "door_opening"
+    def __init__(self, owner):
+        super().__init__(owner)
+        self.all_frames = owner.door_opening_frames + owner.door_open_frames
+        self.delay = 100
+    
+    def enter(self):
+        self.owner.current_frame = 0
+        self.owner.last_update = pg.time.get_ticks()
+        self.owner.animation_complete = False
+        self.owner.transitioned = False
+
+    def update(self):
+        now = pg.time.get_ticks()
+        if now - self.owner.last_update > self.delay:
+            self.owner.last_update = now
+            self.owner.current_frame += 1
+            
+            if self.owner.current_frame < len(self.all_frames):
+                self.owner.image = self.all_frames[self.owner.current_frame]
+                self.owner.rect = self.owner.image.get_rect()
+            else:
+                self.owner.animation_complete = True
+                self.owner.current_frame = len(self.all_frames) - 1
+                self.owner.image = self.all_frames[-1]
+                self.owner.rect = self.owner.image.get_rect()
+                
+                if not self.owner.transitioned:
+                    self.owner.transitioned = True
+                    self._transition_to_boss()
+        
+        if hasattr(self.owner.game, 'player') and not collide_hit_rect(self.owner.game.player, self.owner):
+            if self.owner.animation_complete:
+                self.owner.update_state("door_closing")
+    
+    def _transition_to_boss(self):
+        if self.owner.door_type in ['A', 'B', 'C', 'D']:
+            boss_map = {'A': 'Boss_1', 'B': 'Boss_2', 'C': 'Boss_3', 'D': 'Boss_4'}
+            self.owner.game.current_level = boss_map[self.owner.door_type]
+            self.owner.game.new()
+
+
+class DoorClosingState(State):
+    key = "door_closing"
+    def __init__(self, owner):
+        super().__init__(owner)
+        self.all_frames = owner.door_closing_frames
+        self.delay = 100
+    
+    def enter(self):
+        self.owner.current_frame = 0
+        self.owner.last_update = pg.time.get_ticks()
+        self.owner.animation_complete = False
+
+    def update(self):
+        now = pg.time.get_ticks()
+        if now - self.owner.last_update > self.delay:
+            self.owner.last_update = now
+            self.owner.current_frame += 1
+            
+            if self.owner.current_frame < len(self.all_frames):
+                self.owner.image = self.all_frames[self.owner.current_frame]
+                self.owner.rect = self.owner.image.get_rect()
+            else:
+                self.owner.update_state("door_closed")
 
 
 class DoorOpenState(State):
@@ -152,6 +221,8 @@ STATE_REGISTRY = {
     "coin_spin":   CoinSpinState,
     "door_open":   DoorOpenState,
     "door_closed": DoorClosedState,
+    "door_opening": DoorOpeningState,
+    "door_closing": DoorClosingState,
 }
 
 

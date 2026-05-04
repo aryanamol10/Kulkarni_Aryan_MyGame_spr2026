@@ -374,28 +374,41 @@ class Door(ParentState):
         self.image = self.door_closed_frames[0]
         self.rect  = self.image.get_rect()
         self.pos   = vec(x * TILESIZE, y * TILESIZE)
-        self.rect.topleft = self.pos
-        self.open_door = False
+        self.rect.center = (int(self.pos.x) + TILESIZE // 2, int(self.pos.y) + TILESIZE // 2)
         self.hit_rect  = self.rect.copy()
-
-        FRAME_DATA["door_closed"]["frames"] = self.door_closed_frames
-        FRAME_DATA["door_open"]["frames"]   = self.door_open_frames
+        self.open_door = False
+        self.animation_complete = False
+        self.transitioned = False
 
         self.update_state("door_closed")
 
     def load_images(self):
+        # Load all 10 frames from the 640x64 spritesheet
         self.door_closed_frames = [
-            self.spritesheet.get_image(0, 0, TILESIZE, TILESIZE * 2),
+            self.spritesheet.get_image(0, 0, TILESIZE, TILESIZE),
+        ]
+        self.door_opening_frames = [
+            self.spritesheet.get_image(64, 0, TILESIZE, TILESIZE),
+            self.spritesheet.get_image(128, 0, TILESIZE, TILESIZE),
+            self.spritesheet.get_image(192, 0, TILESIZE, TILESIZE),
+            self.spritesheet.get_image(256, 0, TILESIZE, TILESIZE),
         ]
         self.door_open_frames = [
-            self.spritesheet.get_image(TILESIZE, 0, TILESIZE, TILESIZE * 2),
+            self.spritesheet.get_image(320, 0, TILESIZE, TILESIZE),
         ]
-        for frame in self.door_closed_frames + self.door_open_frames:
+        self.door_closing_frames = [
+            self.spritesheet.get_image(384, 0, TILESIZE, TILESIZE),
+            self.spritesheet.get_image(448, 0, TILESIZE, TILESIZE),
+            self.spritesheet.get_image(512, 0, TILESIZE, TILESIZE),
+            self.spritesheet.get_image(576, 0, TILESIZE, TILESIZE),
+        ]
+        all_frames = self.door_closed_frames + self.door_opening_frames + self.door_open_frames + self.door_closing_frames
+        for frame in all_frames:
             frame.set_colorkey(BLACK)
 
     def update(self):
-        self.rect.topleft = self.pos
-        self.hit_rect     = self.rect.copy()
+        self.rect.center = (int(self.pos.x) + TILESIZE // 2, int(self.pos.y) + TILESIZE // 2)
+        self.hit_rect = self.rect.copy()
         if hasattr(self.game, 'player'):
             self.open_door = collide_hit_rect(self.game.player, self)
         super().update()
