@@ -28,6 +28,8 @@ class Game:
         self.fps_counter = 0
         self.fps_timer = 0
         self.created_floors = set()  # Track created floor positions to avoid duplicates
+        self.background_surface = None  # Cache background for performance
+        self.font_cache = {}  # Cache fonts for better performance
 
     def enter_boss_room(self, door_type):
         boss_room = self.level_map.get(door_type)
@@ -163,7 +165,7 @@ class Game:
                     self.player.attack()
 
     def update(self):
-        # Update all sprites at once (more efficient than individual updates)
+        # Update all sprites - this is essential for player movement and game logic
         self.all_sprites.update()
 
         # Only check collisions if player exists
@@ -204,26 +206,6 @@ class Game:
         if hasattr(self, 'camera') and hasattr(self, 'player'):
             self.camera.update(self.player)
 
-    def update_culled_sprites(self):
-        """Update only sprites that are near the camera viewport for massive performance gains"""
-        if not hasattr(self, 'camera') or not hasattr(self, 'player'):
-            return
-
-        # Define culling area (slightly larger than screen to prevent pop-in)
-        cam_left = self.camera.camera.left - WIDTH//2
-        cam_right = self.camera.camera.right + WIDTH//2
-        cam_top = self.camera.camera.top - HEIGHT//2
-        cam_bottom = self.camera.camera.bottom + HEIGHT//2
-
-        # Update only sprites within the culling area
-        for sprite in self.all_sprites:
-            if hasattr(sprite, 'rect'):
-                sprite_rect = self.camera.apply(sprite)
-                if (sprite_rect.right >= cam_left and sprite_rect.left <= cam_right and
-                    sprite_rect.bottom >= cam_top and sprite_rect.top <= cam_bottom):
-                    if hasattr(sprite, 'update'):
-                        sprite.update()
-
     def draw(self):
         self.draw_game_background()
 
@@ -236,6 +218,7 @@ class Game:
 
         self.draw_text(f"Bosses: {len(self.all_bosses)}", 20, YELLOW, WIDTH - 150, TILESIZE)
         self.draw_text(f"FPS: {getattr(self, 'current_fps', FPS)}", 16, WHITE, WIDTH - 150, TILESIZE + 25)
+        self.draw_text(f"Sprites: {len(self.all_sprites)}", 16, WHITE, WIDTH - 150, TILESIZE + 40)
 
         # Optimized culling-based drawing for maximum performance
         if hasattr(self, 'camera'):
@@ -279,11 +262,17 @@ class Game:
         pg.display.flip()
 
     def draw_game_background(self):
-        self.screen.fill((20, 20, 30))
-        for x in range(0, WIDTH, TILESIZE):
-            pg.draw.line(self.screen, (40, 40, 50), (x, 0), (x, HEIGHT), 1)
-        for y in range(0, HEIGHT, TILESIZE):
-            pg.draw.line(self.screen, (40, 40, 50), (0, y), (WIDTH, y), 1)
+        # Cache background surface for massive performance improvement
+        if self.background_surface is None:
+            self.background_surface = pg.Surface((WIDTH, HEIGHT))
+            self.background_surface.fill((20, 20, 30))
+            # Draw grid lines
+            for x in range(0, WIDTH, TILESIZE):
+                pg.draw.line(self.background_surface, (40, 40, 50), (x, 0), (x, HEIGHT), 1)
+            for y in range(0, HEIGHT, TILESIZE):
+                pg.draw.line(self.background_surface, (40, 40, 50), (0, y), (WIDTH, y), 1)
+
+        self.screen.blit(self.background_surface, (0, 0))
 
     def check_door_click(self, pos):
         if not hasattr(self, 'camera'):
@@ -302,10 +291,15 @@ class Game:
                 break
 
     def draw_text(self, text, size, color, x, y):
-        font_name    = pg.font.match_font('arial')
-        font         = pg.font.Font(font_name, size)
+        # Cache fonts for better performance
+        font_key = (size, color)
+        if font_key not in self.font_cache:
+            font_name = pg.font.match_font('arial')
+            self.font_cache[font_key] = pg.font.Font(font_name, size)
+
+        font = self.font_cache[font_key]
         text_surface = font.render(text, True, color)
-        text_rect    = text_surface.get_rect()
+        text_rect = text_surface.get_rect()
         text_rect.midtop = (x, y)
         self.screen.blit(text_surface, text_rect)
 
