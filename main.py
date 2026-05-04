@@ -30,6 +30,9 @@ class Game:
         self.created_floors = set()  # Track created floor positions to avoid duplicates
         self.background_surface = None  # Cache background for performance
         self.font_cache = {}  # Cache fonts for better performance
+        # Minimap / overview state
+        self.show_map = False
+        self.minimap_cache = None  # cached raw map surface (unscaled)
 
     def enter_boss_room(self, door_type):
         boss_room = self.level_map.get(door_type)
@@ -63,6 +66,8 @@ class Game:
 
         map_file = path.join(self.game_dir, f'Levels/{self.current_level}.txt')
         self.map = Map(map_file)
+        # Invalidate minimap cache when loading a new map
+        self.minimap_cache = None
 
         for row, tiles in enumerate(self.map.data):
             for col, tile in enumerate(tiles):
@@ -160,16 +165,22 @@ class Game:
                 self.narrative.handle_event(event)
                 continue
 
-            if event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE:
-                self.current_level = 'level_1'
-                self.new()
+            if event.type == pg.KEYDOWN:
+                if event.key == pg.K_ESCAPE:
+                    self.current_level = 'level_1'
+                    self.new()
+                elif event.key == pg.K_m:
+                    # Toggle minimap with 'M'
+                    self.show_map = not getattr(self, 'show_map', False)
+                    # ensure cache exists when showing
+                    if self.show_map:
+                        self.minimap_cache = None
+                elif event.key == pg.K_SPACE:
+                    if hasattr(self, 'player'):
+                        self.player.attack()
 
             if event.type == pg.MOUSEBUTTONUP:
                 self.check_door_click(event.pos)
-
-            if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
-                if hasattr(self, 'player'):
-                    self.player.attack()
 
     def update(self):
         # Update all sprites - this is essential for player movement and game logic
@@ -295,6 +306,13 @@ class Game:
         if self.narrative and self.narrative.active:
             self.narrative.draw()
 
+        # Minimap overlay (draw last so it sits on top)
+        if getattr(self, 'show_map', False):
+            try:
+                self.draw_minimap()
+            except Exception:
+                pass
+
         pg.display.flip()
 
     def draw_game_background(self):
@@ -309,6 +327,77 @@ class Game:
                 pg.draw.line(self.background_surface, (40, 40, 50), (0, y), (WIDTH, y), 1)
 
         self.screen.blit(self.background_surface, (0, 0))
+
+    def draw_minimap(self, max_size=420, padding=16):
+        """Render a scaled overview of the level map and player position.
+
+        - `max_size` is the maximum width/height in pixels for the minimap.
+        - The raw minimap is cached in `self.minimap_cache` to avoid rebuilding every frame.
+        """
+        if not hasattr(self, 'map'):
+            return
+        map_w = self.map.tilewidth * TILESIZE
+        map_h = self.map.tileheight * TILESIZE
+
+        if map_w <= 0 or map_h <= 0:
+            return
+
+        # Build raw map surface once per map load / cache invalidation
+        if not getattr(self, 'minimap_cache', None):
+            raw = pg.Surface((map_w, map_h))
+            raw.fill((10, 10, 18))
+            # Draw tiles using simple colors (walls, floors, traps, doors, coins)
+            for r, row in enumerate(self.map.data):
+                for c, ch in enumerate(row):
+                    x = c * TILESIZE
+                    y = r * TILESIZE
+                    if ch == '1':
+                        pg.draw.rect(raw, (60, 60, 80), (x, y, TILESIZE, TILESIZE))
+                    elif ch in ('A', 'B', 'C', 'D'):
+                        pg.draw.rect(raw, (80, 160, 80), (x, y, TILESIZE, TILESIZE))
+                    elif ch == 'T':
+                        pg.draw.rect(raw, (100, 30, 30), (x, y, TILESIZE, TILESIZE))
+                    elif ch == 'o':
+                        pg.draw.rect(raw, (36, 36, 56), (x, y, TILESIZE, TILESIZE))
+                    else:
+                        pg.draw.rect(raw, (30, 30, 50), (x, y, TILESIZE, TILESIZE))
+            self.minimap_cache = raw
+
+        raw = self.minimap_cache
+
+        # Compute scale to fit within max_size
+        scale = min(max_size / map_w, max_size / map_h, 1.0)
+        out_w = max(16, int(map_w * scale))
+        out_h = max(16, int(map_h * scale))
+        mini = pg.transform.smoothscale(raw, (out_w, out_h))
+
+        # Position centered on screen
+        px = (WIDTH - out_w) // 2
+        py = (HEIGHT - out_h) // 2
+
+        # Draw a semi-transparent background panel
+        panel = pg.Surface((out_w + padding * 2, out_h + padding * 2), pg.SRCALPHA)
+        pg.draw.rect(panel, (6, 6, 10, 200), panel.get_rect(), border_radius=8)
+        panel.blit(mini, (padding, padding))
+
+        # Blit to screen
+        self.screen.blit(panel, (px - padding, py - padding))
+
+        # Draw camera viewport rectangle on minimap
+        if hasattr(self, 'camera'):
+            cam = self.camera.camera
+            view_world = pg.Rect(-cam.left, -cam.top, WIDTH, HEIGHT)
+            view_rect = pg.Rect(int(px + view_world.left * scale), int(py + view_world.top * scale),
+                                max(1, int(view_world.width * scale)), max(1, int(view_world.height * scale)))
+            pg.draw.rect(self.screen, (200, 200, 255), view_rect, 2)
+
+        # Draw player position
+        if hasattr(self, 'player') and getattr(self.player, 'pos', None) is not None:
+            p_world_x = int(self.player.pos.x)
+            p_world_y = int(self.player.pos.y)
+            map_x = int(px + p_world_x * scale)
+            map_y = int(py + p_world_y * scale)
+            pg.draw.circle(self.screen, (220, 40, 40), (map_x, map_y), max(3, int(4 * scale)))
 
     def check_door_click(self, pos):
         if not hasattr(self, 'camera'):

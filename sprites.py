@@ -327,7 +327,7 @@ class Enemy(Sprite):
             bar_w    = TILESIZE - 6
             bar_h    = 6
             hp_ratio = max(0, min(1, self.health / max(1, self.max_health)))
-            bar_surf = pg.Surface((bar_w, bar_h), pg.SRCALPHA)P
+            bar_surf = pg.Surface((bar_w, bar_h), pg.SRCALPHA)
             pg.draw.rect(bar_surf, (30,  30,  30),  (0, 0, bar_w, bar_h), border_radius=3)
             pg.draw.rect(bar_surf, (200, 60,  60),  (1, 1, int((bar_w - 2) * hp_ratio), bar_h - 2), border_radius=2)
             base = self.standing_frames[self.current_frame].copy()
