@@ -14,6 +14,32 @@ def collide_hit_rect(one, two):
     return one.hit_rect.colliderect(two.rect)
 
 def collide_with_walls(sprite, group, dir):
+    # Support either a sprite Group or a list of pygame.Rect for walls
+    if isinstance(group, (list, tuple)):
+        # group is a list of rects
+        if dir == 'x':
+            hits = [r for r in group if sprite.hit_rect.colliderect(r)]
+            if hits:
+                r = hits[0]
+                if r.centerx > sprite.hit_rect.centerx:
+                    sprite.pos.x = r.left - (sprite.hit_rect.width / 2)
+                else:
+                    sprite.pos.x = r.right + (sprite.hit_rect.width / 2)
+                sprite.vel.x = 0
+                sprite.hit_rect.centerx = sprite.pos.x
+        if dir == 'y':
+            hits = [r for r in group if sprite.hit_rect.colliderect(r)]
+            if hits:
+                r = hits[0]
+                if r.centery >= sprite.hit_rect.centery:
+                    sprite.pos.y = r.top - sprite.hit_rect.height / 2
+                else:
+                    sprite.pos.y = r.bottom + sprite.hit_rect.height / 2
+                sprite.vel.y = 0
+                sprite.hit_rect.centery = sprite.pos.y
+        return
+
+    # Fallback: group is expected to be a sprite Group
     if dir == 'x':
         hits = pg.sprite.spritecollide(sprite, group, False, collide_hit_rect)
         if hits:
@@ -173,9 +199,9 @@ class Player(ParentState):
         self.acceleration.x = 0
         self.acceleration.y = 0
 
-        collide_with_walls(self, self.game.all_walls, 'x')
+        collide_with_walls(self, self.game.wall_rects, 'x')
         self.hit_rect.centery = self.pos.y
-        collide_with_walls(self, self.game.all_walls, 'y')
+        collide_with_walls(self, self.game.wall_rects, 'y')
         self.hit_rect.centerx = self.pos.x
 
 
@@ -278,8 +304,8 @@ class Enemy(Sprite):
         self.rect.center     = (int(self.pos.x), int(self.pos.y))
         self.hit_rect.center = self.pos
 
-        collide_with_walls(self, self.game.all_walls, 'x')
-        collide_with_walls(self, self.game.all_walls, 'y')
+        collide_with_walls(self, self.game.wall_rects, 'x')
+        collide_with_walls(self, self.game.wall_rects, 'y')
 
         if (self.ranged or self.turret) and dist < 800:
             if now - self.last_shot > self.shoot_delay:
@@ -301,7 +327,7 @@ class Enemy(Sprite):
             bar_w    = TILESIZE - 6
             bar_h    = 6
             hp_ratio = max(0, min(1, self.health / max(1, self.max_health)))
-            bar_surf = pg.Surface((bar_w, bar_h), pg.SRCALPHA)
+            bar_surf = pg.Surface((bar_w, bar_h), pg.SRCALPHA)P
             pg.draw.rect(bar_surf, (30,  30,  30),  (0, 0, bar_w, bar_h), border_radius=3)
             pg.draw.rect(bar_surf, (200, 60,  60),  (1, 1, int((bar_w - 2) * hp_ratio), bar_h - 2), border_radius=2)
             base = self.standing_frames[self.current_frame].copy()

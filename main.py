@@ -55,6 +55,11 @@ class Game:
         self.all_bosses        = pg.sprite.Group()
         self.all_coins         = pg.sprite.Group()
         self.all_bullets       = pg.sprite.Group()
+        # Use a lightweight list of rects for wall collision/rendering
+        self.wall_rects = []
+        # Pre-create a wall tile surface to blit (faster than many small sprites)
+        self.wall_tile = pg.Surface((TILESIZE, TILESIZE))
+        self.wall_tile.fill((60, 60, 80))
 
         map_file = path.join(self.game_dir, f'Levels/{self.current_level}.txt')
         self.map = Map(map_file)
@@ -72,7 +77,9 @@ class Game:
                                 self.created_floors.add((r, c))
 
                 if tile == '1':
-                    Wall(self, col, row)
+                    # Don't create individual Wall sprites for every tile (heavy).
+                    # Keep rectangular records for fast collision and batched rendering.
+                    self.wall_rects.append(pg.Rect(col * TILESIZE, row * TILESIZE, TILESIZE, TILESIZE))
 
                 elif tile == 'P':
                     self.player = Player(self, col, row, [self.all_sprites])
@@ -186,9 +193,12 @@ class Game:
                 if pg.time.get_ticks() % 1000 < 50:  # Print roughly once per second
                     print(f"Picked up {len(coins_collected)} coin(s). Score: {self.score}")
 
-        # Bullet vs Wall collisions (group vs group is efficient)
-        if self.all_bullets and self.all_walls:
-            pg.sprite.groupcollide(self.all_bullets, self.all_walls, True, False, collided=collide_hit_rect)
+        # Bullet vs Wall collisions (rect-based)
+        if self.all_bullets and getattr(self, 'wall_rects', None):
+            for bullet in list(self.all_bullets):
+                # bullet.rect is in world coordinates; wall_rects are too
+                if bullet.rect.collidelist(self.wall_rects) != -1:
+                    bullet.kill()
 
         # Bullet vs Boss collisions (optimized)
         if self.all_bullets and self.all_bosses:
@@ -205,6 +215,23 @@ class Game:
         # Update camera
         if hasattr(self, 'camera') and hasattr(self, 'player'):
             self.camera.update(self.player)
+            # Ensure floor sprites exist for the visible camera region (on-demand creation)
+            self.ensure_visible_floors()
+
+    def ensure_visible_floors(self):
+        if not hasattr(self, 'camera') or not hasattr(self, 'map'):
+            return
+        cam = self.camera.camera
+        left = max(0, cam.left // TILESIZE - 2)
+        right = min(self.map.tilewidth - 1, cam.right // TILESIZE + 2)
+        top = max(0, cam.top // TILESIZE - 2)
+        bottom = min(self.map.tileheight - 1, cam.bottom // TILESIZE + 2)
+
+        for r in range(top, bottom + 1):
+            for c in range(left, right + 1):
+                if self.map.data[r][c] not in ('1', 'P') and (r, c) not in self.created_floors:
+                    Floor(self, c, r)
+                    self.created_floors.add((r, c))
 
     def draw(self):
         self.draw_game_background()
@@ -234,6 +261,15 @@ class Game:
                 if (floor_rect.right >= cam_left and floor_rect.left <= cam_right and
                     floor_rect.bottom >= cam_top and floor_rect.top <= cam_bottom):
                     self.screen.blit(floor.image, floor_rect)
+
+            # Draw walls using rect list (fast, batched, and culled)
+            if getattr(self, 'wall_rects', None):
+                cam_rect = self.camera.camera
+                for r in self.wall_rects:
+                    screen_rect = r.move(cam_rect.topleft)
+                    if (screen_rect.right >= 0 and screen_rect.left <= WIDTH and
+                        screen_rect.bottom >= 0 and screen_rect.top <= HEIGHT):
+                        self.screen.blit(self.wall_tile, screen_rect)
 
             # Draw all non-floor sprites within culling area (excluding bullets)
             for sprite in self.all_sprites:
