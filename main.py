@@ -25,6 +25,9 @@ class Game:
             'D': "Boss_4"
         }
         self.score = 0
+        self.fps_counter = 0
+        self.fps_timer = 0
+        self.created_floors = set()  # Track created floor positions to avoid duplicates
 
     def enter_boss_room(self, door_type):
         boss_room = self.level_map.get(door_type)
@@ -56,16 +59,18 @@ class Game:
 
         for row, tiles in enumerate(self.map.data):
             for col, tile in enumerate(tiles):
-
-                # lay floor under every walkable tile
-                if tile not in ('1', '.'):
-                    Floor(self, col, row)
+                # Only create floor sprites near the player spawn area to reduce sprite count
+                # This dramatically reduces the number of sprites from thousands to dozens
+                if tile == 'P':
+                    # Create floors in a small area around the player spawn
+                    for r in range(max(0, row-5), min(len(self.map.data), row+6)):
+                        for c in range(max(0, col-8), min(len(tiles), col+9)):
+                            if self.map.data[r][c] not in ('1', 'P') and (r, c) not in self.created_floors:
+                                Floor(self, c, r)
+                                self.created_floors.add((r, c))
 
                 if tile == '1':
                     Wall(self, col, row)
-
-                elif tile == '.':
-                    Floor(self, col, row)
 
                 elif tile == 'P':
                     self.player = Player(self, col, row, [self.all_sprites])
@@ -122,6 +127,15 @@ class Game:
     def run(self):
         while self.running:
             self.dt = self.clock.tick(FPS) / 1000
+            self.fps_timer += self.dt
+            self.fps_counter += 1
+
+            # Update FPS display every second
+            if self.fps_timer >= 1.0:
+                self.current_fps = self.fps_counter
+                self.fps_counter = 0
+                self.fps_timer = 0
+
             self.events()
             if not (self.narrative and self.narrative.active):
                 self.update()
@@ -190,6 +204,26 @@ class Game:
         if hasattr(self, 'camera') and hasattr(self, 'player'):
             self.camera.update(self.player)
 
+    def update_culled_sprites(self):
+        """Update only sprites that are near the camera viewport for massive performance gains"""
+        if not hasattr(self, 'camera') or not hasattr(self, 'player'):
+            return
+
+        # Define culling area (slightly larger than screen to prevent pop-in)
+        cam_left = self.camera.camera.left - WIDTH//2
+        cam_right = self.camera.camera.right + WIDTH//2
+        cam_top = self.camera.camera.top - HEIGHT//2
+        cam_bottom = self.camera.camera.bottom + HEIGHT//2
+
+        # Update only sprites within the culling area
+        for sprite in self.all_sprites:
+            if hasattr(sprite, 'rect'):
+                sprite_rect = self.camera.apply(sprite)
+                if (sprite_rect.right >= cam_left and sprite_rect.left <= cam_right and
+                    sprite_rect.bottom >= cam_top and sprite_rect.top <= cam_bottom):
+                    if hasattr(sprite, 'update'):
+                        sprite.update()
+
     def draw(self):
         self.draw_game_background()
 
@@ -201,19 +235,32 @@ class Game:
             self.draw_text(f"Score: {self.score}", 16, GREEN, 100, TILESIZE + 22)
 
         self.draw_text(f"Bosses: {len(self.all_bosses)}", 20, YELLOW, WIDTH - 150, TILESIZE)
+        self.draw_text(f"FPS: {getattr(self, 'current_fps', FPS)}", 16, WHITE, WIDTH - 150, TILESIZE + 25)
 
-        # Optimized drawing - single pass through sprites
+        # Optimized culling-based drawing for maximum performance
         if hasattr(self, 'camera'):
-            # Draw floors first
-            for floor in self.all_floors:
-                self.screen.blit(floor.image, self.camera.apply(floor))
+            # Define culling area (screen + small buffer to prevent pop-in)
+            cam_left = self.camera.camera.left - 50
+            cam_right = self.camera.camera.right + 50
+            cam_top = self.camera.camera.top - 50
+            cam_bottom = self.camera.camera.bottom + 50
 
-            # Draw all non-floor sprites (excluding bullets which are drawn separately)
+            # Draw floors within culling area only
+            for floor in self.all_floors:
+                floor_rect = self.camera.apply(floor)
+                if (floor_rect.right >= cam_left and floor_rect.left <= cam_right and
+                    floor_rect.bottom >= cam_top and floor_rect.top <= cam_bottom):
+                    self.screen.blit(floor.image, floor_rect)
+
+            # Draw all non-floor sprites within culling area (excluding bullets)
             for sprite in self.all_sprites:
                 if not getattr(sprite, 'is_floor', False) and sprite not in self.all_bullets:
-                    self.screen.blit(sprite.image, self.camera.apply(sprite))
+                    sprite_rect = self.camera.apply(sprite)
+                    if (sprite_rect.right >= cam_left and sprite_rect.left <= cam_right and
+                        sprite_rect.bottom >= cam_top and sprite_rect.top <= cam_bottom):
+                        self.screen.blit(sprite.image, sprite_rect)
 
-            # Draw bullets last (so they appear on top)
+            # Draw bullets (always draw these as they're fast-moving and few in number)
             for bullet in self.all_bullets:
                 self.screen.blit(bullet.image, self.camera.apply(bullet))
         else:
