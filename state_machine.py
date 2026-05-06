@@ -45,27 +45,21 @@ class State:
     def enter(self):  pass
     def update(self): pass
     def exit(self):
-        try:
-            if getattr(self.owner, 'direction_facing', None) == "right":
-                self.owner.update_state("walk_right")
-            elif getattr(self.owner, 'direction_facing', None) == "left":
-                self.owner.update_state("walk_left")
-        except Exception:
-            pass
+        pass
 
     # Shared helper — advances the frame strip, optionally flipping horizontally
     def _advance_frame(self, frames, flip_h=False):
         now = pg.time.get_ticks()
         if now - self.owner.last_update > self.delay:
-            self.owner.last_update   = now
+            self.owner.last_update = now
             self.owner.current_frame = (self.owner.current_frame + 1) % len(frames)
-            bottom = self.owner.rect.bottom
-            frame  = frames[self.owner.current_frame]
+            center = self.owner.rect.center
+            frame = frames[self.owner.current_frame]
             if flip_h:
                 frame = pg.transform.flip(frame, True, False)
             self.owner.image = frame
-            self.owner.rect  = self.owner.image.get_rect()
-            self.owner.rect.bottom = bottom
+            self.owner.rect = self.owner.image.get_rect()
+            self.owner.rect.center = center
 
 
 # ─── Concrete states ──────────────────────────────────────────────────────────
@@ -88,22 +82,52 @@ class IdleState(State):
         self.owner.current_frame = 0
         self.owner.last_update = pg.time.get_ticks()
         if hasattr(self.owner, 'standing_frames') and self.owner.standing_frames:
+            center = self.owner.rect.center
             self.owner.image = self.owner.standing_frames[0]
             self.owner.rect = self.owner.image.get_rect()
+            self.owner.rect.center = center
 
     def update(self):
         if hasattr(self.owner, 'standing_frames') and self.owner.standing_frames:
-            bottom = self.owner.rect.bottom
+            center = self.owner.rect.center
             self.owner.image = self.owner.standing_frames[0]
             self.owner.rect = self.owner.image.get_rect()
-            self.owner.rect.bottom = bottom
+            self.owner.rect.center = center
 
 
 class ShootingState(State):
     key = "shoot"
+    def enter(self):
+        self.owner.current_frame = 0
+        self.owner.last_update = pg.time.get_ticks()
+        frames = self.frames or self.owner.shooting_frames
+        if frames:
+            bottom = self.owner.rect.bottom
+            frame = frames[0]
+            if self.owner.direction_facing == 'left':
+                frame = pg.transform.flip(frame, True, False)
+            self.owner.image = frame
+            self.owner.rect = self.owner.image.get_rect()
+            self.owner.rect.bottom = bottom
+
     def update(self):
-        flip = (self.owner.direction_facing == 'left')
-        self._advance_frame(self.frames or self.owner.shooting_frames, flip_h=flip)
+        frames = self.frames or self.owner.shooting_frames
+        if not frames:
+            return
+        now = pg.time.get_ticks()
+        if now - self.owner.last_update > self.delay:
+            self.owner.last_update = now
+            if self.owner.current_frame < len(frames) - 1:
+                self.owner.current_frame += 1
+                center = self.owner.rect.center
+                frame = frames[self.owner.current_frame]
+                if self.owner.direction_facing == 'left':
+                    frame = pg.transform.flip(frame, True, False)
+                self.owner.image = frame
+                self.owner.rect = self.owner.image.get_rect()
+                self.owner.rect.center = center
+            else:
+                self.owner.update_state("idle")
 
 
 class CoinSpinState(State):
@@ -244,6 +268,8 @@ class ParentState(Sprite):
         cls = STATE_REGISTRY.get(key)
         if cls is None:
             raise KeyError(f"Unknown state '{key}'. Add it to STATE_REGISTRY.")
+        if self.state and self.state.key == key:
+            return
         if self.state:
             self.state.exit()
         self.state = cls(self)
