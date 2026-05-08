@@ -360,10 +360,13 @@ class Floor(Sprite):
         self.groups = game.all_sprites, game.all_floors
         Sprite.__init__(self, self.groups)
         self.is_floor = True
-        self.image    = pg.Surface((TILESIZE, TILESIZE))
-        self.image.fill((30, 30, 50))
-        for i in range(0, TILESIZE, 8):
-            pg.draw.line(self.image, (24, 24, 36), (i, 0), (i, TILESIZE), 1)
+        if getattr(game, 'tile_image', None) is not None:
+            self.image = game.tile_image.copy()
+        else:
+            self.image    = pg.Surface((TILESIZE, TILESIZE))
+            self.image.fill((30, 30, 50))
+            for i in range(0, TILESIZE, 8):
+                pg.draw.line(self.image, (24, 24, 36), (i, 0), (i, TILESIZE), 1)
         self.rect = self.image.get_rect(topleft=(x * TILESIZE, y * TILESIZE))
 
 

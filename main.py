@@ -44,6 +44,10 @@ class Game:
     def load_data(self):
         self.game_dir = path.dirname(__file__)
         self.img_dir  = path.join(self.game_dir, 'images')
+        tile_path = path.join(self.img_dir, 'wall_art.png')
+        self.tile_image = pg.image.load(tile_path).convert_alpha() if path.exists(tile_path) else None
+        if self.tile_image is not None:
+            self.tile_image = pg.transform.smoothscale(self.tile_image, (TILESIZE, TILESIZE))
         print(f"Loading data for {self.current_level}")
 
     def new(self):
@@ -61,8 +65,11 @@ class Game:
         # Use a lightweight list of rects for wall collision/rendering
         self.wall_rects = []
         # Pre-create a wall tile surface to blit (faster than many small sprites)
-        self.wall_tile = pg.Surface((TILESIZE, TILESIZE))
-        self.wall_tile.fill((60, 60, 80))
+        if getattr(self, 'tile_image', None) is not None:
+            self.wall_tile = self.tile_image.copy()
+        else:
+            self.wall_tile = pg.Surface((TILESIZE, TILESIZE))
+            self.wall_tile.fill((60, 60, 80))
 
         map_file = path.join(self.game_dir, f'Levels/{self.current_level}.txt')
         self.map = Map(map_file)

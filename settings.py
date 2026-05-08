@@ -4,7 +4,7 @@ import pygame as pg
 WIDTH = 800
 HEIGHT = 600
 TITLE = "The Door-Danger"
-FPS = 60  # Back to 60 FPS now that we've optimized performance
+FPS = 60 
 TILESIZE = 32
 
 #player vals
