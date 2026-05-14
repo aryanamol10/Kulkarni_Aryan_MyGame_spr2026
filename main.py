@@ -50,6 +50,9 @@ class Game:
         # Minimap / overview state
         self.show_map = False
         self.minimap_cache = None  # cached raw map surface (unscaled)
+        # Game over state
+        self.game_over = False
+        self.game_over_time = 0
 
     def enter_boss_room(self, door_type):
         boss_room = self.level_map.get(door_type)
@@ -190,7 +193,17 @@ class Game:
                 continue
 
             if event.type == pg.KEYDOWN:
-                if event.key == pg.K_ESCAPE:
+                if self.game_over:
+                    if event.key == pg.K_SPACE:
+                        # Restart level
+                        self.game_over = False
+                        self.new()
+                    elif event.key == pg.K_ESCAPE:
+                        # Return to level 1
+                        self.current_level = 'level_1'
+                        self.game_over = False
+                        self.new()
+                elif event.key == pg.K_ESCAPE:
                     self.current_level = 'level_1'
                     self.new()
                 elif event.key == pg.K_m:
@@ -210,7 +223,13 @@ class Game:
         # Update all sprites - this is essential for player movement and game logic
         self.all_sprites.update()
 
-        # Only check collisions if player exists
+        # Check if player is dead
+        if hasattr(self, 'player') and self.player.health <= 0 and not self.game_over:
+            self.game_over = True
+            self.game_over_time = pg.time.get_ticks()
+            print("GAME OVER! Final Score:", self.score)
+
+        # Only check collisions if player exists and alive
         if hasattr(self, 'player') and self.player.health > 0:
             # Use group collision methods instead of individual loops (much faster)
             # Player vs Bosses collision (direct contact damage)
@@ -340,7 +359,24 @@ class Game:
             except Exception:
                 pass
 
+        # Draw game over screen if player is dead
+        if self.game_over:
+            self.draw_game_over()
+
         pg.display.flip()
+
+    def draw_game_over(self):
+        """Draw the game over screen overlay."""
+        # Semi-transparent overlay
+        overlay = pg.Surface((WIDTH, HEIGHT))
+        overlay.set_alpha(200)
+        overlay.fill((0, 0, 0))
+        self.screen.blit(overlay, (0, 0))
+
+        # Draw text
+        self.draw_text("GAME OVER", 60, RED, WIDTH / 2, HEIGHT / 2 - 80)
+        self.draw_text(f"Final Score: {self.score}", 32, YELLOW, WIDTH / 2, HEIGHT / 2 - 10)
+        self.draw_text("SPACE to Restart | ESC to Return to Level 1", 20, WHITE, WIDTH / 2, HEIGHT / 2 + 60)
 
     def draw_game_background(self):
         # Cache background surface for massive performance improvement
