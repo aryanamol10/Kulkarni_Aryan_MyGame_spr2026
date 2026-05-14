@@ -79,8 +79,13 @@ class Player(ParentState):
         self.last_update = 0
         self.current_frame = 0
         self.health = 100
-        self.last_hit_time = 0
-        self.invincibility_ms = 1200
+        # Invincibility frames system
+        self.invincibility_timer = 0  # Tracks when invincibility ends (in milliseconds)
+        self.invincibility_duration = 500  # milliseconds - player can't take damage for this long
+        # Exponential damage system
+        self.damage_combo = 0  # How many consecutive hits
+        self.last_hit_time = 0  # Time of last hit
+        self.combo_reset_threshold = 1200  # Reset combo if no hit for 1.2 seconds
 
         FRAME_DATA["walk_right"]["frames"] = self.standing_frames
         FRAME_DATA["walk_left"]["frames"]  = self.standing_frames
@@ -139,16 +144,33 @@ class Player(ParentState):
             pass
         Bullet(self.game, spawn_pos, dir_vec)
 
-    def take_damage(self, damage):
+    def take_damage(self, base_damage):
+        """Take damage with invincibility frames and exponential damage scaling."""
         now = pg.time.get_ticks()
-        if now - self.last_hit_time < self.invincibility_ms:
-            return False
-        self.last_hit_time = now
-        self.health -= damage
+        
+        # Check if still in invincibility frames - completely block damage
+        if now < self.invincibility_timer:
+            return  # Can't take damage during invincibility
+        
+        # Reset combo if too much time has passed since last hit
+        if now - self.last_hit_time > self.combo_reset_threshold:
+            self.damage_combo = 0
+        
+        # Increase combo and calculate exponential damage
+        self.damage_combo += 1
+        # Exponential scaling: damage increases as 1.3^(combo-1)
+        # combo 1 = 1x damage, combo 2 = 1.3x, combo 3 = 1.69x, etc.
+        damage_multiplier = 1.3 ** (self.damage_combo - 1)
+        final_damage = int(base_damage * damage_multiplier)
+        
+        self.health -= final_damage
         if self.health < 0:
             self.health = 0
-        print(f"Player health: {self.health}")
-        return True
+        
+        self.last_hit_time = now
+        self.invincibility_timer = now + self.invincibility_duration
+        
+        print(f"Player hit! Combo: {self.damage_combo} | Damage: {final_damage} (x{damage_multiplier}) | Health: {self.health}")
 
     def bounce_back(self):
         self.vel *= -0.5
@@ -174,19 +196,15 @@ class Player(ParentState):
         self.acceleration.x = 0
         self.acceleration.y = 0
 
-        shooting = self.state and self.state.key == "shoot"
-
         if pressed_keys[pg.K_LEFT] or pressed_keys[pg.K_a]:
             self.acceleration.x = -PLAYER_ACCEL
             self.direction_facing = "left"
-            if not shooting:
-                self.update_state("walk_left")
+            self.update_state("walk_left")
             moving = True
         elif pressed_keys[pg.K_RIGHT] or pressed_keys[pg.K_d]:
             self.acceleration.x = PLAYER_ACCEL
             self.direction_facing = "right"
-            if not shooting:
-                self.update_state("walk_right")
+            self.update_state("walk_right")
             moving = True
 
         if pressed_keys[pg.K_UP] or pressed_keys[pg.K_w]:
@@ -196,7 +214,7 @@ class Player(ParentState):
             self.acceleration.y = PLAYER_ACCEL
             moving = True
 
-        if not moving and not shooting:
+        if not moving:
             self.update_state("idle")
 
     def update(self):
@@ -209,12 +227,6 @@ class Player(ParentState):
         self.rect.center = self.pos
         self.acceleration.x = 0
         self.acceleration.y = 0
-
-        if pg.time.get_ticks() - self.last_hit_time < self.invincibility_ms:
-            alpha = 170 if (pg.time.get_ticks() // 100) % 2 == 0 else 255
-            self.image.set_alpha(alpha)
-        else:
-            self.image.set_alpha(255)
 
         collide_with_walls(self, self.game.wall_rects, 'x')
         self.hit_rect.centery = self.pos.y
@@ -377,13 +389,10 @@ class Floor(Sprite):
         self.groups = game.all_sprites, game.all_floors
         Sprite.__init__(self, self.groups)
         self.is_floor = True
-        if getattr(game, 'tile_image', None) is not None:
-            self.image = game.tile_image.copy()
-        else:
-            self.image    = pg.Surface((TILESIZE, TILESIZE))
-            self.image.fill((30, 30, 50))
-            for i in range(0, TILESIZE, 8):
-                pg.draw.line(self.image, (24, 24, 36), (i, 0), (i, TILESIZE), 1)
+        self.image    = pg.Surface((TILESIZE, TILESIZE))
+        self.image.fill((30, 30, 50))
+        for i in range(0, TILESIZE, 8):
+            pg.draw.line(self.image, (24, 24, 36), (i, 0), (i, TILESIZE), 1)
         self.rect = self.image.get_rect(topleft=(x * TILESIZE, y * TILESIZE))
 
 
@@ -514,7 +523,6 @@ class Bullet(Sprite):
         self.rect = self.image.get_rect()
         self.pos  = vec(pos)
         self.rect.center = (int(self.pos.x), int(self.pos.y))
-        self.hit_rect = self.rect.copy()
 
         direction = vec(direction)
         self.vel  = direction.normalize() * 600 if direction.length() != 0 else vec(1, 0) * 600
@@ -522,7 +530,6 @@ class Bullet(Sprite):
     def update(self):
         self.pos += self.vel * self.game.dt
         self.rect.center = (int(self.pos.x), int(self.pos.y))
-        self.hit_rect.center = self.rect.center
         if not (0 <= self.rect.x <= WIDTH and 0 <= self.rect.y <= HEIGHT):
             self.kill()
 

@@ -213,13 +213,16 @@ class Game:
         # Only check collisions if player exists
         if hasattr(self, 'player') and self.player.health > 0:
             # Use group collision methods instead of individual loops (much faster)
-            # Player vs Bosses collision
+            # Player vs Bosses collision (direct contact damage)
             boss_hits = pg.sprite.spritecollide(self.player, self.all_bosses, False, collided=collide_hit_rect)
             if boss_hits:
                 self.player.take_damage(5)
-                # Only print occasionally to avoid spam
-                if pg.time.get_ticks() % 1000 < 50:  # Print roughly once per second
-                    print(f"Player hit! Health: {self.player.health}")
+
+            # Player vs Enemy Bullets collision
+            enemy_bullet_hits = pg.sprite.spritecollide(self.player, self.all_enemy_bullets, True, collided=collide_hit_rect)
+            if enemy_bullet_hits:
+                for bullet in enemy_bullet_hits:
+                    self.player.take_damage(3)
 
             # Player vs Coins collision
             coins_collected = pg.sprite.spritecollide(self.player, self.all_coins, True, collided=collide_hit_rect)
