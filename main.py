@@ -178,7 +178,7 @@ class Game:
                 self.fps_timer = 0
 
             self.events()
-            if not (self.narrative and self.narrative.active):
+            if not (self.narrative and self.narrative.active) and not self.game_over:
                 self.update()
             self.draw()
 
